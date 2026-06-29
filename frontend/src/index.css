@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    border-color: inherit;
+  }
+  
+  html {
+    color-scheme: light dark;
+  }
+
+  body {
+    @apply bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50 font-sans antialiased;
+    min-height: 100vh;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-zinc-100 dark:bg-zinc-900;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-zinc-300 dark:bg-zinc-700 rounded-sm;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-zinc-400 dark:bg-zinc-600;
+  }
+}
+
+@layer components {
+  /* Clean corporate card: subtle borders, no shadows, sharp corners */
+  .card {
+    @apply bg-white dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-md;
+  }
+
+  .card-header {
+    @apply px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between;
+  }
+
+  .card-body {
+    @apply p-4;
+  }
+
+  /* Flat Vercel-like buttons */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded border font-medium text-xs transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed select-none;
+  }
+
+  .btn-primary {
+    @apply btn bg-zinc-900 text-white border-zinc-900 hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-900 dark:border-zinc-50 dark:hover:bg-zinc-200;
+  }
+
+  .btn-secondary {
+    @apply btn bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50 hover:text-zinc-900 dark:bg-zinc-900 dark:text-zinc-300 dark:border-zinc-800 dark:hover:bg-zinc-800/80 dark:hover:text-zinc-100;
+  }
+
+  .btn-ghost {
+    @apply btn bg-transparent text-zinc-500 border-transparent hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-100;
+  }
+
+  .btn-danger {
+    @apply btn bg-red-50 text-red-700 border-red-200 hover:bg-red-100 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30 dark:hover:bg-red-950/40;
+  }
+
+  /* Form inputs */
+  .input {
+    @apply w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded px-2.5 py-1.5 text-xs text-zinc-900 dark:text-zinc-50
+           placeholder-zinc-400 dark:placeholder-zinc-600 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-600
+           transition-colors duration-150;
+  }
+
+  .label {
+    @apply block text-[11px] font-medium text-zinc-500 dark:text-zinc-400 mb-1;
+  }
+
+  .select {
+    @apply input appearance-none cursor-pointer;
+  }
+
+  /* Enterprise Table view styles */
+  .th {
+    @apply px-4 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 tracking-wider uppercase;
+  }
+
+  .td {
+    @apply px-4 py-2.5 text-xs border-b border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300;
+  }
+
+  .table-row {
+    @apply hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-colors;
+  }
+}
+
+/* Restrained Status badge colors - dots with borders */
+.status-tag {
+  @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border;
+}
+
+.status-applied      { @apply status-tag bg-blue-50/50 text-blue-700 border-blue-200 dark:bg-blue-950/10 dark:text-blue-400 dark:border-blue-900/30; }
+.status-interviewing { @apply status-tag bg-amber-50/50 text-amber-700 border-amber-200 dark:bg-amber-950/10 dark:text-amber-400 dark:border-amber-900/30; }
+.status-offer        { @apply status-tag bg-emerald-50/50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/10 dark:text-emerald-400 dark:border-emerald-900/30; }
+.status-rejected     { @apply status-tag bg-red-50/50 text-red-700 border-red-200 dark:bg-red-950/10 dark:text-red-400 dark:border-red-900/30; }
+.status-withdrawn    { @apply status-tag bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800/80 dark:text-zinc-400 dark:border-zinc-800; }
