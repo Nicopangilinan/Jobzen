@@ -10,9 +10,11 @@ class Settings(BaseSettings):
     postgres_db: str = "jobtracker"
 
     # Auth
-    google_client_id: str = "797452142799-1i7etrovbb74ddh58tinm9um6v3v8fje.apps.googleusercontent.com"
-    google_client_secret: str = "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"
-    jwt_secret: str = "change-me-in-production"
+    # IMPORTANT: do not hardcode secrets in the repository.
+    # Set these via environment variables in Vercel (Project Settings → Environment Variables).
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    jwt_secret: str = "change-me"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 10080  # 7 days
 

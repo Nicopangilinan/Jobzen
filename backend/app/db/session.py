@@ -1,15 +1,23 @@
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.pool import NullPool
 from app.config import get_settings
 
 settings = get_settings()
 
-engine = create_async_engine(
-    settings.database_url,
-    echo=settings.environment == "development",
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
-)
+_is_dev = settings.environment == "development"
+
+# In serverless runtimes (like Vercel), connection pooling can cause too many open connections
+# across concurrent lambdas. Prefer NullPool outside local dev.
+_engine_kwargs = {
+    "echo": _is_dev,
+    "pool_pre_ping": True,
+}
+if _is_dev:
+    _engine_kwargs.update({"pool_size": 10, "max_overflow": 20})
+else:
+    _engine_kwargs.update({"poolclass": NullPool})
+
+engine = create_async_engine(settings.database_url, **_engine_kwargs)
 
 AsyncSessionLocal = async_sessionmaker(
     engine,
