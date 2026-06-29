@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.config import get_settings
 from app.db.base import Base
+from app.db.db_url import normalize_asyncpg_database_url
 
 # Import all models so Alembic can discover them
 import app.models  # noqa: F401
@@ -20,7 +21,8 @@ config = context.config
 settings = get_settings()
 
 # Override the sqlalchemy URL from our settings (reads .env)
-config.set_main_option("sqlalchemy.url", settings.database_url)
+database_url, connect_args = normalize_asyncpg_database_url(settings.database_url)
+config.set_main_option("sqlalchemy.url", database_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
@@ -51,6 +53,7 @@ async def run_async_migrations() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=connect_args,
     )
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
