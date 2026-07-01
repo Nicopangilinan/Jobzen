@@ -136,54 +136,61 @@ def extract_metadata_from_html(html: str) -> dict:
     return data
 
 
-async def scrape_job_url(url: str) -> dict:
-    """Scrape HTML from a job posting URL and use Claude to extract structured details."""
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
-        ),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
+async def call_gemini_api(prompt: str, system_instruction: str = None, response_json: bool = False) -> str:
+    """Helper to query Gemini API via httpx."""
+    if not settings.gemini_api_key or settings.gemini_api_key == "your-key" or "your-key" in settings.gemini_api_key:
+        raise ValueError("Gemini API key is not configured.")
+        
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={settings.gemini_api_key}"
+    
+    contents = [
+        {
+            "parts": [
+                {"text": prompt}
+            ]
+        }
+    ]
+    
+    payload = {
+        "contents": contents
     }
     
-    try:
-        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-            response = await client.get(url, headers=headers)
-            response.raise_for_status()
-            html = response.text
-    except Exception as e:
-        logger.error(f"Failed to fetch URL {url}: {e}")
-        # Return fallback empty structure if HTTP fetch fails
-        return {
-            "company_name": "",
-            "job_title": "",
-            "location": "",
-            "salary_min": None,
-            "salary_max": None,
-            "currency": "USD",
-            "job_description": "",
-            "work_type": "unknown",
+    if system_instruction:
+        payload["systemInstruction"] = {
+            "parts": [
+                {"text": system_instruction}
+            ]
         }
-
-    # Clean the HTML to extract content text
-    soup = BeautifulSoup(html, "html.parser")
+        
+    generation_config = {
+        "temperature": 0.2
+    }
+    if response_json:
+        generation_config["responseMimeType"] = "application/json"
+        
+    payload["generationConfig"] = generation_config
     
-    # Extract metadata using fallback HTML parsing if Anthropic key is not available
-    fallback_data = extract_metadata_from_html(html)
+    headers = {
+        "Content-Type": "application/json"
+    }
     
-    for script_or_style in soup(["script", "style", "nav", "footer", "header", "noscript"]):
-        script_or_style.decompose()
-
-    text = soup.get_text(separator="\n")
-    # Clean up whitespace
-    text = re.sub(r"\n+", "\n", text)
-    text = re.sub(r" +", " ", text).strip()
-    
-    # Truncate text if it is too long to stay safe with token limits
-    text = text[:12000]
-
-    # If Anthropic client is not configured, we return the parsed metadata
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            response = await client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            resp_data = response.json()
+            candidates = resp_data.get("candidates", [])
+            if not candidates:
+                raise ValueError("No candidates returned from Gemini.")
+            
+            parts = candidates[0].get("content", {}).get("parts", [])
+            if not parts:
+                raise ValueError("No parts returned from Gemini candidate content.")
+                
+            return parts[0].get("text", "").strip()
+        except Exception as e:
+            logger.error(f"Gemini API error: {e}")
+            raise ValueError(f"Gemini API call failed: {str(e)}")
 async def call_ollama_api(prompt: str, system_instruction: str = None) -> str:
     """Helper to query Ollama API running locally."""
     if not settings.ollama_api_url:
@@ -276,7 +283,23 @@ Here is the text scraped from a job application URL:
 {text}
 ---"""
 
-    # Use Claude if available, otherwise use Ollama
+    # Use Gemini if available
+    if settings.gemini_api_key and settings.gemini_api_key != "your-key" and "your-key" not in settings.gemini_api_key:
+        try:
+            content_text = await call_gemini_api(
+                prompt=prompt,
+                system_instruction="You extract structured data from unstructured text. You always respond with raw JSON only.",
+                response_json=True
+            )
+            content_text = content_text.strip()
+            if content_text.startswith("```"):
+                content_text = re.sub(r"^```(?:json)?\n", "", content_text)
+                content_text = re.sub(r"\n```$", "", content_text)
+            return json.loads(content_text)
+        except Exception as e:
+            logger.error(f"Failed parsing job description with Gemini: {e}")
+
+    # Use Claude if available
     if anthropic_client:
         try:
             message = await anthropic_client.messages.create(
@@ -295,7 +318,7 @@ Here is the text scraped from a job application URL:
             logger.error(f"Failed parsing job description with Claude: {e}")
 
     # Use Ollama if available
-    else:
+    if settings.ollama_api_url:
         try:
             content_text = await call_ollama_api(
                 prompt=prompt,
@@ -346,6 +369,26 @@ Respond with a JSON object containing:
 
 Return only the raw JSON. No wrapper, no markdown block syntax."""
 
+    # Use Gemini if available
+    if settings.gemini_api_key and settings.gemini_api_key != "your-key" and "your-key" not in settings.gemini_api_key:
+        try:
+            content_text = await call_gemini_api(
+                prompt=prompt,
+                system_instruction="You evaluate job candidate matches. You always respond with raw JSON only.",
+                response_json=True
+            )
+            content_text = content_text.strip()
+            if content_text.startswith("```"):
+                content_text = re.sub(r"^```(?:json)?\n", "", content_text)
+                content_text = re.sub(r"\n```$", "", content_text)
+            data = json.loads(content_text)
+            return {
+                "ai_match_score": float(data.get("ai_match_score", 0.0)),
+                "ai_match_explanation": str(data.get("ai_match_explanation", "")),
+            }
+        except Exception as e:
+            logger.error(f"Failed calculating match score with Gemini: {e}")
+
     # Use Claude if available
     if anthropic_client:
         try:
@@ -369,7 +412,7 @@ Return only the raw JSON. No wrapper, no markdown block syntax."""
             logger.error(f"Failed calculating match score with Claude: {e}")
 
     # Use Ollama as fallback
-    else:
+    if settings.ollama_api_url:
         try:
             content_text = await call_ollama_api(
                 prompt=prompt,
@@ -404,9 +447,6 @@ async def summarize_resume(resume_text: str) -> str:
             return cleaned_text[:300] + "..."
         return cleaned_text if cleaned_text else "Resume uploaded. Use the match analysis feature to evaluate job fit."
     
-    if not anthropic_client:
-        return _fallback_summary(resume_text)
-
     prompt = f"""You are a professional resume summarizer. Create a concise, compelling 2-3 sentence summary of the candidate's background, key skills, and experience, followed by 3-4 bullet points highlighting their core technical strengths.
 
 Candidate Resume:
@@ -416,6 +456,18 @@ Candidate Resume:
 
 Provide only the clean markdown summary. No wrappers, intro text, or code block formatting."""
 
+    # Use Gemini if available
+    if settings.gemini_api_key and settings.gemini_api_key != "your-key" and "your-key" not in settings.gemini_api_key:
+        try:
+            content_text = await call_gemini_api(
+                prompt=prompt,
+                system_instruction="You summarize resumes professionally. Respond only with the summary text in Markdown format."
+            )
+            return content_text.strip()
+        except Exception as e:
+            logger.error(f"Failed to summarize resume with Gemini: {e}")
+
+    # Use Claude if available
     if anthropic_client:
         try:
             message = await anthropic_client.messages.create(
@@ -428,20 +480,10 @@ Provide only the clean markdown summary. No wrappers, intro text, or code block 
             return message.content[0].text.strip()
         except Exception as e:
             logger.error(f"Failed to summarize resume with Claude: {e}")
-            return _fallback_summary(resume_text)
 
     # Use Ollama as fallback
-    else:
+    if settings.ollama_api_url:
         try:
-            prompt = f"""You are a professional resume summarizer. Create a concise, compelling 2-3 sentence summary of the candidate's background, key skills, and experience, followed by 3-4 bullet points highlighting their core technical strengths.
-
-Candidate Resume:
----
-{resume_text}
----
-
-Provide only the clean markdown summary. No wrappers, intro text, or code block formatting."""
-            
             content_text = await call_ollama_api(
                 prompt=prompt,
                 system_instruction="You summarize resumes professionally. Respond only with the summary text in Markdown format."
@@ -449,4 +491,5 @@ Provide only the clean markdown summary. No wrappers, intro text, or code block 
             return content_text.strip()
         except Exception as e:
             logger.error(f"Failed to summarize resume with Ollama: {e}")
-            return _fallback_summary(resume_text)
+
+    return _fallback_summary(resume_text)

@@ -25,6 +25,7 @@ class Settings(BaseSettings):
 
     # AI
     anthropic_api_key: str = ""
+    gemini_api_key: str = ""
     ollama_api_url: str = "http://host.docker.internal:11434"
     ollama_model: str = "mistral"
 

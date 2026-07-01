@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { LayoutDashboard, Briefcase, Settings, LogOut, Sun, Moon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { authApi } from '../api/client'
+import monogram from '../album/JZmonogram.png'
 
 const NAV = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -29,8 +30,8 @@ export default function Sidebar() {
       <div className="px-4 py-4 border-b border-zinc-200 dark:border-zinc-800">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded bg-zinc-900 dark:bg-zinc-50 flex items-center justify-center">
-              <span className="text-[10px] font-black text-white dark:text-black tracking-tighter">Jz</span>
+            <div className="w-5 h-5 rounded overflow-hidden flex items-center justify-center">
+              <img src={monogram} alt="Jobzen" className="w-full h-full object-contain" />
             </div>
             <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm tracking-tight">jobzen</span>
           </div>

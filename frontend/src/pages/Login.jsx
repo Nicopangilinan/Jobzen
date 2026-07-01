@@ -1,4 +1,5 @@
 import { Briefcase } from 'lucide-react'
+import monogram from '../album/JZmonogram.png'
 
 export default function Login() {
   return (
@@ -6,8 +7,8 @@ export default function Login() {
       <div className="w-full max-w-sm">
         {/* Brand Header */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-10 h-10 rounded bg-zinc-900 dark:bg-zinc-50 mb-3 select-none">
-            <span className="text-xs font-black text-white dark:text-black tracking-tighter">Jz</span>
+          <div className="inline-flex items-center justify-center w-10 h-10 rounded mb-3 select-none overflow-hidden">
+            <img src={monogram} alt="Jobzen" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-xl font-bold text-zinc-950 dark:text-zinc-50 tracking-tight">jobzen</h1>
           <p className="mt-1 text-zinc-500 dark:text-zinc-400 text-xs">
