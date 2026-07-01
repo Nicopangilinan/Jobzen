@@ -37,7 +37,7 @@ function ProtectedRoute({ children }) {
 
 export default function App() {
   useEffect(() => {
-    document.title = 'Jobzen — Enterprise Job Application Pipeline'
+    document.title = 'Jobzen'
   }, [])
 
   return (

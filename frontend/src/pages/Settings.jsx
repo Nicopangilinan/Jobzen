@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { authApi } from '../api/client'
-import { CheckCircle, AlertCircle, Sparkles, User, Bell, FileText, UploadCloud } from 'lucide-react'
+import { Sparkles, User, Bell, FileText, UploadCloud, Info } from 'lucide-react'
+import Toast from '../components/Toast'
 
 export default function Settings() {
   const { user, updateUser } = useAuth()
@@ -12,26 +13,29 @@ export default function Settings() {
     email_notifications: user?.email_notifications ?? true,
   })
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [error, setError] = useState(null)
-  
   const [uploading, setUploading] = useState(false)
-  const [uploadError, setUploadError] = useState(null)
+
+  // Toast state: { type: 'loading' | 'success' | 'error', message: string } | null
+  const [toast, setToast] = useState(null)
+
+  const showToast = useCallback((type, message, duration = 4000) => {
+    setToast({ type, message, duration })
+  }, [])
+
+  const dismissToast = useCallback(() => setToast(null), [])
 
   const set = (field, value) => setForm(p => ({ ...p, [field]: value }))
 
   const submit = async (e) => {
     e.preventDefault()
     setSaving(true)
-    setSaved(false)
-    setError(null)
+    showToast('loading', 'Saving your profile…')
     try {
       const { data } = await authApi.update(form)
       updateUser(data)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
+      showToast('success', 'Profile saved successfully!', 4000)
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to save. Please try again.')
+      showToast('error', err.response?.data?.detail || 'Failed to save. Please try again.', 5000)
     } finally {
       setSaving(false)
     }
@@ -40,17 +44,17 @@ export default function Settings() {
   const handleCvUpload = async (e) => {
     const file = e.target.files[0]
     if (!file) return
-    
+
     if (file.type !== 'application/pdf') {
-      setUploadError('Only PDF files are supported.')
+      showToast('error', 'Only PDF files are supported.', 5000)
       return
     }
-    
+
     setUploading(true)
-    setUploadError(null)
+    showToast('loading', 'Uploading and parsing your resume…')
     const formData = new FormData()
     formData.append('file', file)
-    
+
     try {
       const { data } = await authApi.uploadCv(formData)
       updateUser(data)
@@ -58,8 +62,9 @@ export default function Settings() {
         ...p,
         profile_summary: data.profile_summary || '',
       }))
+      showToast('success', 'Resume parsed! AI summary has been generated below.', 5000)
     } catch (err) {
-      setUploadError(err.response?.data?.detail || 'Failed to parse resume. Please try again.')
+      showToast('error', err.response?.data?.detail || 'Failed to parse resume. Please try again.', 5000)
     } finally {
       setUploading(false)
     }
@@ -69,21 +74,29 @@ export default function Settings() {
     try {
       const { data } = await authApi.update({ resume_text: null })
       updateUser(data)
-    } catch (err) {
-      setError('Failed to remove CV.')
+      showToast('success', 'Resume removed.', 3000)
+    } catch {
+      showToast('error', 'Failed to remove CV.', 4000)
     }
   }
 
   const profileWordCount = form.profile_summary.trim().split(/\s+/).filter(Boolean).length
-
-  // Update banner calculation to consider resume_text
   const isAiReady = user?.resume_text || user?.profile_summary
 
   return (
     <div className="max-w-2xl space-y-6 animate-fade-in">
+      {toast && (
+        <Toast
+          type={toast.type}
+          message={toast.message}
+          duration={toast.duration}
+          onClose={dismissToast}
+        />
+      )}
+
       <div>
         <h1 className="text-2xl font-bold text-slate-100">Settings</h1>
-        <p className="text-slate-400 text-sm mt-1">Manage your profile and preferences.</p>
+        <p className="text-slate-400 text-sm mt-1">Manage your profile and AI matching preferences.</p>
       </div>
 
       {/* AI Feature Banner */}
@@ -99,24 +112,13 @@ export default function Settings() {
           </p>
           <p className="text-xs text-slate-400 mt-0.5">
             {isAiReady
-              ? 'Your profile/resume is set. Open any job and click "Calculate Match Score" to analyze fit.'
-              : 'Upload a Resume/CV or fill in your Profile Summary below to unlock AI match scoring.'}
+              ? 'Your resume/profile is active. The AI uses both your full CV text and any additional notes you write below for maximum matching accuracy.'
+              : 'Upload a Resume/CV or fill in your Profile Notes below to unlock AI match scoring.'}
           </p>
         </div>
       </div>
 
       <form onSubmit={submit} className="space-y-6">
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-sm text-red-400 flex items-center gap-2">
-            <AlertCircle size={15} /> {error}
-          </div>
-        )}
-        {saved && (
-          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3 text-sm text-emerald-400 flex items-center gap-2">
-            <CheckCircle size={15} /> Changes saved successfully!
-          </div>
-        )}
-
         {/* Resume Card */}
         <div className="card p-6 space-y-4">
           <div className="flex items-center justify-between">
@@ -130,14 +132,8 @@ export default function Settings() {
           </div>
 
           <p className="text-xs text-slate-400">
-            Upload your resume (PDF) to unlock high-fidelity AI matching. We will extract details from your CV for match scores and auto-generate the profile summary below.
+            Upload your resume (PDF). We will extract the full text and use it verbatim for AI job matching — no information is left behind. An AI summary will also be auto-generated in the field below.
           </p>
-
-          {uploadError && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-xs text-red-400 flex items-center gap-2">
-              <AlertCircle size={14} /> {uploadError}
-            </div>
-          )}
 
           {user?.resume_text ? (
             <div className="flex items-center justify-between p-3.5 bg-emerald-500/5 border border-emerald-500/20 rounded-lg">
@@ -146,9 +142,9 @@ export default function Settings() {
                   <FileText size={18} />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-emerald-300">Resume parsed successfully</p>
-                  <p className="text-[10px] text-slate-550 mt-0.5">
-                    {user.resume_text.length.toLocaleString()} characters of experience history active for matching
+                  <p className="text-sm font-medium text-emerald-300">Resume active for matching</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    {user.resume_text.length.toLocaleString()} characters extracted from your CV
                   </p>
                 </div>
               </div>
@@ -171,10 +167,10 @@ export default function Settings() {
               />
               <UploadCloud size={28} className={`text-slate-500 transition-transform duration-300 group-hover:-translate-y-0.5 ${uploading ? 'animate-bounce text-brand-400' : 'group-hover:text-brand-400'}`} />
               <p className="text-sm font-medium text-slate-300 mt-3">
-                {uploading ? 'Extracting skills and summary...' : 'Upload your resume (PDF)'}
+                {uploading ? 'Extracting and summarizing…' : 'Upload your resume (PDF)'}
               </p>
               <p className="text-[11px] text-slate-500 mt-1">
-                {uploading ? 'This will take a few seconds' : 'Drag and drop or click to browse'}
+                {uploading ? 'AI is reading your resume, this takes a few seconds' : 'Drag and drop, or click to browse'}
               </p>
             </div>
           )}
@@ -211,21 +207,30 @@ export default function Settings() {
             <div className="flex items-center justify-between mb-1.5">
               <label className="label mb-0">
                 <Sparkles size={12} className="inline mr-1 text-brand-400" />
-                Profile Summary <span className="text-brand-400">(for AI Matching)</span>
+                AI Profile Notes <span className="text-brand-400">(Supplements your Resume)</span>
               </label>
-              <span className={`text-[10px] font-medium ${profileWordCount >= 50 ? 'text-emerald-400' : 'text-slate-500'}`}>
-                {profileWordCount} / 50+ words recommended
+              <span className={`text-[10px] font-medium ${profileWordCount >= 20 ? 'text-emerald-400' : 'text-slate-500'}`}>
+                {profileWordCount} words
               </span>
             </div>
+
+            {/* Info callout */}
+            <div className="flex items-start gap-2 bg-brand-500/5 border border-brand-500/15 rounded-lg px-3 py-2.5 mb-2">
+              <Info size={13} className="text-brand-400 mt-0.5 shrink-0" />
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                This field <span className="text-slate-200 font-medium">adds to</span> your uploaded CV during AI matching — it is not a replacement. Use it to specify job preferences, desired role level, preferred work style, or anything your resume doesn't cover (e.g. <em>"I'm only looking for senior remote roles in product-led companies"</em>). If no CV is uploaded, this is used alone.
+              </p>
+            </div>
+
             <textarea
               className="input resize-none"
               rows={6}
-              placeholder={`Describe your skills, experience, and what you're looking for. Example:\n\nI am a full-stack software engineer with 5 years of experience in React, Python (FastAPI/Django), and PostgreSQL. I'm looking for senior-level remote roles at product-driven companies. I have a strong background in building scalable APIs and developer tooling.`}
+              placeholder={`Add preferences and context your resume may not cover. For example:\n\nI'm looking for senior-level remote or hybrid roles at product-driven companies. I prefer teams that value autonomy, fast iteration, and strong engineering culture. Open to startups (Series A+) or mid-sized tech companies.`}
               value={form.profile_summary}
               onChange={e => set('profile_summary', e.target.value)}
             />
             <p className="text-xs text-slate-500 mt-1">
-              Be specific about your tech stack, years of experience, and job preferences for best results.
+              Be specific about role preferences, seniority, location, and work style for the most accurate AI matching results.
             </p>
           </div>
         </div>
@@ -256,8 +261,12 @@ export default function Settings() {
           </label>
         </div>
 
-        <button type="submit" disabled={saving} className="btn-primary">
-          {saving ? 'Saving...' : saved ? '✓ Saved!' : 'Save Changes'}
+        <button
+          type="submit"
+          disabled={saving}
+          className="btn-primary w-full justify-center py-2.5"
+        >
+          {saving ? 'Saving…' : 'Save Changes'}
         </button>
       </form>
     </div>

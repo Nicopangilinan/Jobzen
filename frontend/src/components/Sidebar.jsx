@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { LayoutDashboard, Briefcase, Settings, LogOut, Sun, Moon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { authApi } from '../api/client'
-import monogram from '../album/JZmonogram.png'
+import monogram from '../album/JZdark.png'
 
 const NAV = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },

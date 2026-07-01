@@ -180,8 +180,14 @@ async def analyze_job_match(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    # Use resume_text if available, otherwise fallback to profile_summary
-    source_text = current_user.resume_text or current_user.profile_summary
+    # Combine raw resume and manual profile summary updates
+    source_parts = []
+    if current_user.resume_text:
+        source_parts.append(f"Candidate Resume History:\n{current_user.resume_text}")
+    if current_user.profile_summary:
+        source_parts.append(f"Candidate Profile Summary & Preferences:\n{current_user.profile_summary}")
+
+    source_text = "\n\n".join(source_parts).strip()
     if not source_text:
         raise HTTPException(
             status_code=400,

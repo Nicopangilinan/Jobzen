@@ -340,7 +340,7 @@ Here is the text scraped from a job application URL:
 
 
 async def calculate_match_score(profile_summary: str, job_description: str) -> dict:
-    """Calculate match score (0-100) and brief explanation using LLM (Claude/Ollama)."""
+    """Calculate match score (0-100) with structured strengths and gaps using LLM."""
     
     if not profile_summary or not job_description:
         return {
@@ -348,9 +348,9 @@ async def calculate_match_score(profile_summary: str, job_description: str) -> d
             "ai_match_explanation": "Please fill out your profile summary and the job description to calculate a match score.",
         }
 
-    prompt = f"""You are a professional recruiting assistant. Compare this candidate's profile summary with the job description.
+    prompt = f"""You are a professional recruiting assistant. Compare this candidate's resume / profile summary with the job description.
 
-Candidate Profile Summary:
+Candidate Resume / Profile Summary:
 ---
 {profile_summary}
 ---
@@ -361,13 +361,35 @@ Job Description:
 ---
 
 Analyze how well the candidate matches the job requirements.
-Provide a score between 0.0 and 100.0 (where 100.0 is a perfect match) and a concise, bullet-pointed explanation (max 3 bullet points) of the strengths and gaps.
 
-Respond with a JSON object containing:
-- ai_match_score (float, 0.0 to 100.0)
-- ai_match_explanation (string, clean markdown summary)
+Respond with a JSON object containing EXACTLY these fields:
+- ai_match_score (float, 0.0 to 100.0 where 100.0 is a perfect match)
+- strengths (array of 2-4 short strings: specific reasons the candidate is a good fit)
+- gaps (array of 1-4 short strings: specific requirements the candidate is missing or weak on)
 
-Return only the raw JSON. No wrapper, no markdown block syntax."""
+Rules:
+- If the match is strong (score >= 70), include MORE strengths than gaps.
+- If the match is weak (score < 50), include MORE gaps than strengths.
+- Each item should be a single concise sentence, no bullet prefix characters.
+- Do NOT use markdown inside the strings. Plain text only.
+
+Return only the raw JSON object. No wrapper, no markdown block syntax."""
+
+    def _parse_structured(data: dict) -> dict:
+        """Extract and validate the structured response."""
+        strengths = data.get("strengths", [])
+        gaps = data.get("gaps", [])
+        # Normalize: ensure lists of strings
+        if not isinstance(strengths, list):
+            strengths = []
+        if not isinstance(gaps, list):
+            gaps = []
+        strengths = [str(s).strip("- •*").strip() for s in strengths if s]
+        gaps = [str(g).strip("- •*").strip() for g in gaps if g]
+        return {
+            "ai_match_score": float(data.get("ai_match_score", 0.0)),
+            "ai_match_explanation": json.dumps({"strengths": strengths, "gaps": gaps}),
+        }
 
     # Use Gemini if available
     if settings.gemini_api_key and settings.gemini_api_key != "your-key" and "your-key" not in settings.gemini_api_key:
@@ -381,11 +403,7 @@ Return only the raw JSON. No wrapper, no markdown block syntax."""
             if content_text.startswith("```"):
                 content_text = re.sub(r"^```(?:json)?\n", "", content_text)
                 content_text = re.sub(r"\n```$", "", content_text)
-            data = json.loads(content_text)
-            return {
-                "ai_match_score": float(data.get("ai_match_score", 0.0)),
-                "ai_match_explanation": str(data.get("ai_match_explanation", "")),
-            }
+            return _parse_structured(json.loads(content_text))
         except Exception as e:
             logger.error(f"Failed calculating match score with Gemini: {e}")
 
@@ -403,11 +421,7 @@ Return only the raw JSON. No wrapper, no markdown block syntax."""
             if content_text.startswith("```"):
                 content_text = re.sub(r"^```(?:json)?\n", "", content_text)
                 content_text = re.sub(r"\n```$", "", content_text)
-            data = json.loads(content_text)
-            return {
-                "ai_match_score": float(data.get("ai_match_score", 0.0)),
-                "ai_match_explanation": str(data.get("ai_match_explanation", "")),
-            }
+            return _parse_structured(json.loads(content_text))
         except Exception as e:
             logger.error(f"Failed calculating match score with Claude: {e}")
 
@@ -422,11 +436,7 @@ Return only the raw JSON. No wrapper, no markdown block syntax."""
             if content_text.startswith("```"):
                 content_text = re.sub(r"^```(?:json)?\n", "", content_text)
                 content_text = re.sub(r"\n```$", "", content_text)
-            data = json.loads(content_text)
-            return {
-                "ai_match_score": float(data.get("ai_match_score", 0.0)),
-                "ai_match_explanation": str(data.get("ai_match_explanation", "")),
-            }
+            return _parse_structured(json.loads(content_text))
         except Exception as e:
             logger.error(f"Failed calculating match score with Ollama: {e}")
 

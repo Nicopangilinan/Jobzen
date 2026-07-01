@@ -1,5 +1,5 @@
 import { Briefcase } from 'lucide-react'
-import monogram from '../album/JZmonogram.png'
+import monogram from '../album/JZdark.png'
 
 export default function Login() {
   return (
