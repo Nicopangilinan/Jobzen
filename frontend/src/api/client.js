@@ -15,6 +15,7 @@ export const jobsApi = {
   stats:  ()       => api.get('/jobs/stats/summary'),
   scrape: (url)    => api.post('/jobs/scrape', { url }),
   analyze: (id)    => api.post(`/jobs/${id}/analyze`),
+  checkStatus: (id) => api.post(`/jobs/${id}/check-status`),
 }
 
 // ── Auth ───────────────────────────────────────────────────────────────────

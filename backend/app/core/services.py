@@ -503,3 +503,106 @@ Provide only the clean markdown summary. No wrappers, intro text, or code block 
             logger.error(f"Failed to summarize resume with Ollama: {e}")
 
     return _fallback_summary(resume_text)
+
+
+async def check_job_active(url: str) -> dict:
+    """Check if a job posting URL is still active or has been closed/removed."""
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+    }
+    
+    try:
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+            response = await client.get(url, headers=headers)
+            if response.status_code == 404:
+                return {"is_active": False, "reason": "Page not found (404)"}
+            response.raise_for_status()
+            html = response.text
+    except Exception as e:
+        logger.error(f"Failed to fetch job URL for active check {url}: {e}")
+        return {"is_active": False, "reason": "Job posting page unreachable"}
+
+    soup = BeautifulSoup(html, "html.parser")
+    for script_or_style in soup(["script", "style", "nav", "footer", "header", "noscript"]):
+        script_or_style.decompose()
+
+    text = soup.get_text(separator="\n")
+    text = re.sub(r"\n+", "\n", text)
+    text = re.sub(r" +", " ", text).strip()
+    text = text[:8000]
+
+    prompt = f"""Analyze the following text scraped from a job application URL and determine if the job listing is still active/open, or if it has been closed, filled, expired, or deleted.
+
+Job Page Text:
+---
+{text}
+---
+
+Respond with a JSON object containing:
+- is_active (boolean: true if the job is active and accepting applications, false otherwise)
+- reason (string: a very brief explanation, e.g., 'Active', 'Job closed/expired', 'No longer accepting applications', 'Page not found')
+
+Return only the raw JSON. No wrapper, no markdown block syntax."""
+
+    # Use Gemini if available
+    if settings.gemini_api_key and settings.gemini_api_key != "your-key" and "your-key" not in settings.gemini_api_key:
+        try:
+            content_text = await call_gemini_api(
+                prompt=prompt,
+                system_instruction="You determine if job listings are still active. You always respond with raw JSON only.",
+                response_json=True
+            )
+            content_text = content_text.strip()
+            if content_text.startswith("```"):
+                content_text = re.sub(r"^```(?:json)?\n", "", content_text)
+                content_text = re.sub(r"\n```$", "", content_text)
+            return json.loads(content_text)
+        except Exception as e:
+            logger.error(f"Failed checking job active status with Gemini: {e}")
+
+    # Use Claude if available
+    if anthropic_client:
+        try:
+            message = await anthropic_client.messages.create(
+                model="claude-3-haiku-20240307",
+                max_tokens=500,
+                temperature=0.0,
+                system="You determine if job listings are still active. You always respond with raw JSON only.",
+                messages=[{"role": "user", "content": prompt}]
+            )
+            content_text = message.content[0].text.strip()
+            if content_text.startswith("```"):
+                content_text = re.sub(r"^```(?:json)?\n", "", content_text)
+                content_text = re.sub(r"\n```$", "", content_text)
+            return json.loads(content_text)
+        except Exception as e:
+            logger.error(f"Failed checking job active status with Claude: {e}")
+
+    # Use Ollama if available
+    if settings.ollama_api_url:
+        try:
+            content_text = await call_ollama_api(
+                prompt=prompt,
+                system_instruction="You determine if job listings are still active. You always respond with raw JSON only."
+            )
+            content_text = content_text.strip()
+            if content_text.startswith("```"):
+                content_text = re.sub(r"^```(?:json)?\n", "", content_text)
+                content_text = re.sub(r"\n```$", "", content_text)
+            return json.loads(content_text)
+        except Exception as e:
+            logger.error(f"Failed checking job active status with Ollama: {e}")
+
+    # Simple heuristic fallback
+    lower_text = text.lower()
+    closed_keywords = ["no longer accepting applications", "job is closed", "expired", "filled", "listing has ended", "not active"]
+    for kw in closed_keywords:
+        if kw in lower_text:
+            return {"is_active": False, "reason": f"Closed ({kw})"}
+
+    return {"is_active": True, "reason": "Active"}

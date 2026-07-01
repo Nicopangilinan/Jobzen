@@ -160,7 +160,14 @@ export default function Dashboard() {
                     </div>
                     
                     <div className="flex items-center gap-3 shrink-0">
-                      <StatusBadge status={job.status} />
+                      <div className="flex items-center gap-1.5">
+                        <StatusBadge status={job.status} />
+                        {job.is_active === false && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 border border-amber-500/25 text-amber-500">
+                            ⚠ Expired
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[10px] text-zinc-400 dark:text-zinc-500 hidden sm:block">
                         {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
                       </span>

@@ -7,7 +7,7 @@ from app.db.session import get_db
 from app.models.job import Job
 from app.schemas.job import JobCreate, JobUpdate, JobResponse, JobScrapeRequest
 from app.api.deps import CurrentUser
-from app.core.services import scrape_job_url, calculate_match_score
+from app.core.services import scrape_job_url, calculate_match_score, check_job_active
 from app.config import get_settings
 import uuid
 import urllib.parse
@@ -207,6 +207,44 @@ async def analyze_job_match(
     await db.commit()
     await db.refresh(job)
     return job
+
+
+@router.post("/{job_id}/check-status")
+async def check_job_status(
+    job_id: uuid.UUID,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Verify if the job posting is still active by scraping its URL."""
+    result = await db.execute(
+        select(Job).where(Job.id == job_id, Job.user_id == current_user.id)
+    )
+    job = result.scalar_one_or_none()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if not job.job_url:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot verify status because this job has no posting URL."
+        )
+
+    status_data = await check_job_active(job.job_url)
+    
+    is_active = status_data.get("is_active", True)
+    job.is_active = is_active
+    
+    if not is_active:
+        job.status = "withdrawn"
+        
+    await db.commit()
+    await db.refresh(job)
+    
+    return {
+        "is_active": job.is_active,
+        "reason": status_data.get("reason", "Unknown"),
+        "status": job.status
+    }
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

@@ -97,6 +97,11 @@ export default function Jobs() {
                       </div>
                       <h4 className="font-semibold text-zinc-900 dark:text-zinc-100 text-xs leading-tight mb-0.5">{job.job_title}</h4>
                       <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{job.company_name}</p>
+                      {job.is_active === false && (
+                        <span className="inline-flex items-center gap-0.5 mt-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 border border-amber-500/25 text-amber-500">
+                          ⚠ Expired
+                        </span>
+                      )}
                       <div className="flex items-center justify-between mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800 text-[10px] text-zinc-400 dark:text-zinc-500">
                         <span>{job.location || 'Remote'}</span>
                         {job.salary_min && <span>${job.salary_min/1000}k+</span>}
@@ -142,7 +147,16 @@ export default function Jobs() {
                       </Link>
                     </td>
                     <td className="td">{job.job_title}</td>
-                    <td className="td"><StatusBadge status={job.status} /></td>
+                    <td className="td">
+                      <div className="flex items-center gap-1.5">
+                        <StatusBadge status={job.status} />
+                        {job.is_active === false && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 border border-amber-500/25 text-amber-500">
+                            ⚠ Expired
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="td">{job.location || '—'}</td>
                     <td className="td capitalize">{job.work_type || '—'}</td>
                     <td className="td text-right">{new Date(job.created_at).toLocaleDateString()}</td>

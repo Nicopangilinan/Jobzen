@@ -17,6 +17,7 @@ class JobCreate(BaseModel):
     date_applied: date | None = None
     notes: str | None = None
     job_description: str | None = None
+    is_active: bool = True
 
 
 class JobUpdate(BaseModel):
@@ -32,6 +33,7 @@ class JobUpdate(BaseModel):
     date_applied: date | None = None
     notes: str | None = None
     job_description: str | None = None
+    is_active: bool | None = None
 
 
 class JobResponse(BaseModel):
@@ -52,6 +54,7 @@ class JobResponse(BaseModel):
     company_logo_url: str | None = None
     ai_match_score: float | None = None
     ai_match_explanation: str | None = None
+    is_active: bool = True
     created_at: datetime
     updated_at: datetime
 

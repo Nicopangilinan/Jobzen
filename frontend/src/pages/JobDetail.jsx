@@ -82,6 +82,8 @@ export default function JobDetail() {
   const [descVal, setDescVal] = useState('')
 
   const [analyzing, setAnalyzing] = useState(false)
+  const [checkingStatus, setCheckingStatus] = useState(false)
+  const [urlStatus, setUrlStatus] = useState(null)
   const [toast, setToast] = useState(null)
 
   const showToast = useCallback((type, message, duration = 4000) => {
@@ -89,12 +91,45 @@ export default function JobDetail() {
   }, [])
   const dismissToast = useCallback(() => setToast(null), [])
 
+  const verifyListing = async (showFeedback = false, jobId = id) => {
+    setCheckingStatus(true)
+    if (showFeedback) {
+      setUrlStatus(null)
+      showToast('loading', 'Checking job posting status...')
+    }
+    try {
+      const { data } = await jobsApi.checkStatus(jobId)
+      setUrlStatus(data)
+      setJob(prev => prev ? { ...prev, is_active: data.is_active, status: data.status } : null)
+      if (showFeedback) {
+        if (data.is_active) {
+          showToast('success', 'Job posting is still active and open!')
+        } else {
+          showToast('warning', `Job listing is inactive: ${data.reason}`)
+        }
+      }
+    } catch (err) {
+      if (showFeedback) {
+        showToast('error', err.response?.data?.detail || 'Failed to verify posting status.')
+      }
+    } finally {
+      setCheckingStatus(false)
+    }
+  }
+
   const fetchJob = async () => {
     try {
       const { data } = await jobsApi.get(id)
       setJob(data)
       setNotesVal(data.notes || '')
       setDescVal(data.job_description || '')
+      if (data.is_active === false) {
+        setUrlStatus({ is_active: false, reason: 'Expired' })
+      }
+      // Auto-verify if url exists and not already marked inactive
+      if (data.job_url && data.is_active !== false) {
+        verifyListing(false, data.id)
+      }
     } catch {
       navigate('/jobs')
     } finally {
@@ -200,9 +235,32 @@ export default function JobDetail() {
                 )}
                 {job.work_type && <span className="capitalize">{job.work_type}</span>}
                 {job.job_url && (
-                  <a href={job.job_url} target="_blank" rel="noreferrer" className="text-brand-500 hover:text-brand-600 flex items-center gap-1">
-                    <LinkIcon size={10} />Posting
-                  </a>
+                  <div className="flex flex-wrap items-center gap-2 border-l border-zinc-200 dark:border-zinc-800 pl-3">
+                    <a href={job.job_url} target="_blank" rel="noreferrer" className="text-brand-500 hover:text-brand-600 flex items-center gap-1 font-semibold">
+                      <LinkIcon size={10} />Posting
+                    </a>
+                    <button
+                      onClick={() => verifyListing(true)}
+                      disabled={checkingStatus}
+                      className="text-zinc-400 hover:text-zinc-200 flex items-center gap-1 cursor-pointer transition-colors text-[10px] bg-transparent border-0 p-0"
+                      title="Verify if this job listing is still active"
+                    >
+                      {checkingStatus ? (
+                        <RefreshCw size={9} className="animate-spin text-brand-500" />
+                      ) : (
+                        <span className="underline select-none">Verify Listing</span>
+                      )}
+                    </button>
+                    {urlStatus && (
+                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold border ${
+                        urlStatus.is_active
+                          ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                          : 'bg-red-500/10 border-red-500/20 text-red-400'
+                      }`}>
+                        {urlStatus.is_active ? 'Active' : `Inactive (${urlStatus.reason})`}
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
