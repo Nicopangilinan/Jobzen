@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Plus, LayoutGrid, List } from 'lucide-react'
 import { jobsApi } from '../api/client'
 import StatusBadge, { STATUS_CONFIG } from '../components/StatusBadge'
+import ExpiredBadge from '../components/ExpiredBadge'
 import AddJobModal from '../components/AddJobModal'
 import { Link } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
@@ -37,79 +38,79 @@ export default function Jobs() {
   }, {})
 
   return (
-    <div className="space-y-4 h-full flex flex-col select-none">
-      {/* Header */}
-      <div className="flex items-center justify-between shrink-0">
+    <div className="flex h-full flex-col space-y-4">
+      <div className="flex shrink-0 flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-lg font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">Applications</h1>
-          <p className="text-zinc-500 dark:text-zinc-400 text-xs">
+          <h1 className="page-title text-2xl sm:text-[2rem]">Applications</h1>
+          <p className="page-subtitle">
             {jobs.length} application{jobs.length !== 1 ? 's' : ''} in pipeline
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center border border-zinc-200 dark:border-zinc-800 rounded p-0.5">
+
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex items-center rounded-2xl border border-zinc-200 bg-white p-1 dark:border-zinc-800 dark:bg-zinc-900">
             <button
               onClick={() => setView('kanban')}
-              className={`p-1 rounded-sm transition-colors ${view === 'kanban' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'}`}
+              className={`flex min-h-[2.5rem] items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${view === 'kanban' ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'}`}
             >
-              <LayoutGrid size={13} />
+              <LayoutGrid size={15} />
+              <span>Board</span>
             </button>
             <button
               onClick={() => setView('list')}
-              className={`p-1 rounded-sm transition-colors ${view === 'list' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'}`}
+              className={`flex min-h-[2.5rem] items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${view === 'list' ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'}`}
             >
-              <List size={13} />
+              <List size={15} />
+              <span>List</span>
             </button>
           </div>
-          <button onClick={() => setShowAddModal(true)} className="btn-primary">
-            <Plus size={13} /> Add
+          <button onClick={() => setShowAddModal(true)} className="btn-primary sm:min-w-[10rem]">
+            <Plus size={16} /> Add Application
           </button>
         </div>
       </div>
 
-      {/* Content */}
       <div className="flex-1 min-h-0 overflow-hidden">
         {view === 'kanban' ? (
-          /* Kanban Board */
-          <div className="flex gap-3 h-full overflow-x-auto pb-2 items-start">
+          <div className="flex h-full items-start gap-3 overflow-x-auto pb-2">
             {STATUSES.map(status => (
-              <div key={status} className="w-64 shrink-0 flex flex-col max-h-full">
-                <div className="flex items-center justify-between mb-2 px-1 shrink-0">
+              <div key={status} className="flex max-h-full w-[85vw] max-w-sm shrink-0 flex-col sm:w-80">
+                <div className="mb-2 flex shrink-0 items-center justify-between px-1">
                   <div className="flex items-center gap-1.5">
-                    <h3 className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 capitalize">{STATUS_CONFIG[status].label}</h3>
-                    <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
+                    <h3 className="text-sm font-semibold capitalize text-zinc-700 dark:text-zinc-300">{STATUS_CONFIG[status].label}</h3>
+                    <span className="rounded-full bg-zinc-100 px-2 py-1 text-[10px] font-mono text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500">
                       {jobsByStatus[status].length}
                     </span>
                   </div>
                 </div>
-                <div className="flex-1 overflow-y-auto space-y-1.5 min-h-0">
+                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
                   {jobsByStatus[status].map(job => (
-                    <Link key={job.id} to={`/jobs/${job.id}`} className="block card p-3 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors">
-                      <div className="flex items-start justify-between mb-1.5">
+                    <Link key={job.id} to={`/jobs/${job.id}`} className="block card p-4 transition-colors hover:border-zinc-300 dark:hover:border-zinc-700">
+                      <div className="mb-2 flex items-start justify-between gap-3">
                         {job.company_logo_url ? (
-                          <img src={job.company_logo_url} alt="" className="w-6 h-6 rounded border border-zinc-200 dark:border-zinc-800 object-contain bg-white p-0.5 shrink-0" onError={e => { e.target.style.display = 'none' }} />
+                          <img src={job.company_logo_url} alt="" className="h-9 w-9 shrink-0 rounded-2xl border border-zinc-200 bg-white p-1 object-contain dark:border-zinc-800" onError={e => { e.target.style.display = 'none' }} />
                         ) : (
-                          <div className="w-6 h-6 rounded bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-500 shrink-0 border border-zinc-200 dark:border-zinc-700">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-zinc-200 bg-zinc-100 text-xs font-bold text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800">
                             {job.company_name[0]}
                           </div>
                         )}
-                        <span className="text-[10px] text-zinc-400 dark:text-zinc-500">{formatDistanceToNow(new Date(job.created_at))} ago</span>
+                        <span className="text-[11px] text-zinc-400 dark:text-zinc-500">{formatDistanceToNow(new Date(job.created_at))} ago</span>
                       </div>
-                      <h4 className="font-semibold text-zinc-900 dark:text-zinc-100 text-xs leading-tight mb-0.5">{job.job_title}</h4>
-                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{job.company_name}</p>
+                      <h4 className="mb-1 text-sm font-semibold leading-tight text-zinc-900 dark:text-zinc-100">{job.job_title}</h4>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">{job.company_name}</p>
                       {job.is_active === false && (
-                        <span className="inline-flex items-center gap-0.5 mt-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 border border-amber-500/25 text-amber-500">
-                          ⚠ Expired
-                        </span>
+                        <div className="mt-1">
+                          <ExpiredBadge compact />
+                        </div>
                       )}
-                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800 text-[10px] text-zinc-400 dark:text-zinc-500">
+                      <div className="mt-3 flex items-center justify-between border-t border-zinc-100 pt-3 text-xs text-zinc-400 dark:border-zinc-800 dark:text-zinc-500">
                         <span>{job.location || 'Remote'}</span>
                         {job.salary_min && <span>${job.salary_min/1000}k+</span>}
                       </div>
                     </Link>
                   ))}
                   {jobsByStatus[status].length === 0 && (
-                    <div className="border border-dashed border-zinc-200 dark:border-zinc-800 rounded p-3 text-center text-zinc-400 dark:text-zinc-600 text-[11px]">
+                    <div className="rounded-2xl border border-dashed border-zinc-200 p-4 text-center text-xs text-zinc-400 dark:border-zinc-800 dark:text-zinc-600">
                       No items
                     </div>
                   )}
@@ -118,59 +119,94 @@ export default function Jobs() {
             ))}
           </div>
         ) : (
-          /* Table View */
-          <div className="card overflow-hidden">
-            <table className="w-full text-left whitespace-nowrap">
-              <thead>
-                <tr>
-                  <th className="th">Company</th>
-                  <th className="th">Role</th>
-                  <th className="th">Status</th>
-                  <th className="th">Location</th>
-                  <th className="th">Type</th>
-                  <th className="th text-right">Applied</th>
-                </tr>
-              </thead>
-              <tbody>
-                {jobs.map(job => (
-                  <tr key={job.id} className="table-row">
-                    <td className="td">
-                      <Link to={`/jobs/${job.id}`} className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 font-medium hover:text-brand-500 transition-colors">
-                        {job.company_logo_url ? (
-                          <img src={job.company_logo_url} alt="" className="w-5 h-5 rounded border border-zinc-200 dark:border-zinc-800 object-contain bg-white p-0.5 shrink-0" onError={e => { e.target.style.display = 'none' }} />
-                        ) : (
-                          <div className="w-5 h-5 rounded bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-[9px] font-bold text-zinc-500 shrink-0">
-                            {job.company_name[0]}
-                          </div>
-                        )}
-                        {job.company_name}
-                      </Link>
-                    </td>
-                    <td className="td">{job.job_title}</td>
-                    <td className="td">
-                      <div className="flex items-center gap-1.5">
-                        <StatusBadge status={job.status} />
-                        {job.is_active === false && (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 border border-amber-500/25 text-amber-500">
-                            ⚠ Expired
-                          </span>
-                        )}
+          <div className="space-y-3">
+            <div className="mobile-card-list">
+              {jobs.map(job => (
+                <Link key={job.id} to={`/jobs/${job.id}`} className="card block p-4">
+                  <div className="flex items-start gap-3">
+                    {job.company_logo_url ? (
+                      <img src={job.company_logo_url} alt="" className="h-10 w-10 shrink-0 rounded-2xl border border-zinc-200 bg-white p-1 object-contain dark:border-zinc-800" onError={e => { e.target.style.display = 'none' }} />
+                    ) : (
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-zinc-200 bg-zinc-100 text-sm font-bold text-zinc-500 dark:border-zinc-800 dark:bg-zinc-800">
+                        {job.company_name[0]}
                       </div>
-                    </td>
-                    <td className="td">{job.location || '—'}</td>
-                    <td className="td capitalize">{job.work_type || '—'}</td>
-                    <td className="td text-right">{new Date(job.created_at).toLocaleDateString()}</td>
-                  </tr>
-                ))}
-                {jobs.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="td text-center text-zinc-400 py-8">
-                      No applications yet. Click "Add" to get started.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">{job.company_name}</p>
+                        <span className="text-[11px] text-zinc-400 dark:text-zinc-500">{new Date(job.created_at).toLocaleDateString()}</span>
+                      </div>
+                      <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{job.job_title}</p>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <StatusBadge status={job.status} />
+                        <span className="rounded-full bg-zinc-100 px-2 py-1 text-[11px] text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">{job.location || 'No location'}</span>
+                        <span className="rounded-full bg-zinc-100 px-2 py-1 text-[11px] capitalize text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">{job.work_type || 'Unknown type'}</span>
+                        {job.is_active === false && <ExpiredBadge />}
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+              {jobs.length === 0 && (
+                <div className="card p-6 text-center text-sm text-zinc-400">
+                  No applications yet. Tap “Add Application” to get started.
+                </div>
+              )}
+            </div>
+
+            <div className="hidden md:block">
+              <div className="card overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="min-w-[780px] w-full text-left">
+                    <thead>
+                      <tr>
+                        <th className="th">Company</th>
+                        <th className="th">Role</th>
+                        <th className="th">Status</th>
+                        <th className="th">Location</th>
+                        <th className="th">Type</th>
+                        <th className="th text-right">Applied</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {jobs.map(job => (
+                        <tr key={job.id} className="table-row">
+                          <td className="td !py-2.5">
+                            <Link to={`/jobs/${job.id}`} className="flex items-center gap-2 text-zinc-900 transition-colors hover:text-brand-500 dark:text-zinc-100">
+                              {job.company_logo_url ? (
+                                <img src={job.company_logo_url} alt="" className="h-8 w-8 shrink-0 rounded-2xl border border-zinc-200 bg-white p-1 object-contain dark:border-zinc-800" onError={e => { e.target.style.display = 'none' }} />
+                              ) : (
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-zinc-100 text-[10px] font-bold text-zinc-500 dark:bg-zinc-800">
+                                  {job.company_name[0]}
+                                </div>
+                              )}
+                              <span className="font-medium">{job.company_name}</span>
+                            </Link>
+                          </td>
+                          <td className="td !py-2.5">{job.job_title}</td>
+                          <td className="td !py-2.5">
+                            <div className="flex flex-nowrap items-center gap-1.5 whitespace-nowrap">
+                              <StatusBadge status={job.status} />
+                              {job.is_active === false && <ExpiredBadge compact />}
+                            </div>
+                          </td>
+                          <td className="td !py-2.5">{job.location || '—'}</td>
+                          <td className="td !py-2.5 capitalize">{job.work_type || '—'}</td>
+                          <td className="td !py-2.5 text-right">{new Date(job.created_at).toLocaleDateString()}</td>
+                        </tr>
+                      ))}
+                      {jobs.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="td py-8 text-center text-zinc-400">
+                            No applications yet. Click "Add Application" to get started.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>

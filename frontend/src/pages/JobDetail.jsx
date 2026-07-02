@@ -196,7 +196,7 @@ export default function JobDetail() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4 pb-12 select-none">
+    <div className="mx-auto max-w-5xl space-y-4 pb-12">
       {toast && (
         <Toast
           type={toast.type}
@@ -206,53 +206,51 @@ export default function JobDetail() {
         />
       )}
 
-      {/* Back link */}
-      <Link to="/jobs" className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors">
+      <Link to="/jobs" className="inline-flex items-center gap-1.5 text-sm text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
         <ArrowLeft size={12} /> Applications
       </Link>
 
-      {/* Header Card */}
-      <div className="card p-4">
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-3">
+      <div className="card p-4 sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex items-start gap-3 sm:gap-4">
             {job.company_logo_url ? (
-              <img src={job.company_logo_url} alt="" className="w-10 h-10 rounded border border-zinc-200 dark:border-zinc-800 object-contain bg-white p-1 shrink-0" />
+              <img src={job.company_logo_url} alt="" className="h-12 w-12 shrink-0 rounded-2xl border border-zinc-200 bg-white p-1 object-contain dark:border-zinc-800" />
             ) : (
-              <div className="w-10 h-10 rounded bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-sm font-bold text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 shrink-0">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-zinc-200 bg-zinc-100 text-base font-bold text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400">
                 {job.company_name[0]}
               </div>
             )}
-            <div>
-              <h1 className="text-base font-bold text-zinc-900 dark:text-zinc-50">{job.job_title}</h1>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{job.company_name}</p>
-              <div className="flex flex-wrap items-center gap-3 mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-                {job.location && <span className="flex items-center gap-1"><MapPin size={10} />{job.location}</span>}
+            <div className="min-w-0">
+              <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-2xl">{job.job_title}</h1>
+              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{job.company_name}</p>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                {job.location && <span className="flex items-center gap-1 rounded-full bg-zinc-100 px-2.5 py-1 dark:bg-zinc-800"><MapPin size={12} />{job.location}</span>}
                 {job.salary_min && (
-                  <span className="flex items-center gap-1">
-                    <DollarSign size={10} />
+                  <span className="flex items-center gap-1 rounded-full bg-zinc-100 px-2.5 py-1 dark:bg-zinc-800">
+                    <DollarSign size={12} />
                     {job.salary_min.toLocaleString()}{job.salary_max ? ` – ${job.salary_max.toLocaleString()}` : ''} {job.currency}
                   </span>
                 )}
-                {job.work_type && <span className="capitalize">{job.work_type}</span>}
+                {job.work_type && <span className="rounded-full bg-zinc-100 px-2.5 py-1 capitalize dark:bg-zinc-800">{job.work_type}</span>}
                 {job.job_url && (
-                  <div className="flex flex-wrap items-center gap-2 border-l border-zinc-200 dark:border-zinc-800 pl-3">
-                    <a href={job.job_url} target="_blank" rel="noreferrer" className="text-brand-500 hover:text-brand-600 flex items-center gap-1 font-semibold">
-                      <LinkIcon size={10} />Posting
+                  <div className="flex flex-wrap items-center gap-2 pl-0 sm:pl-1">
+                    <a href={job.job_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-2.5 py-1 font-semibold text-brand-600 transition hover:bg-brand-100 dark:border-brand-500/20 dark:bg-brand-500/10 dark:text-brand-300">
+                      <LinkIcon size={12} />Posting
                     </a>
                     <button
                       onClick={() => verifyListing(true)}
                       disabled={checkingStatus}
-                      className="text-zinc-400 hover:text-zinc-200 flex items-center gap-1 cursor-pointer transition-colors text-[10px] bg-transparent border-0 p-0"
+                      className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] text-zinc-500 transition-colors hover:text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
                       title="Verify if this job listing is still active"
                     >
                       {checkingStatus ? (
-                        <RefreshCw size={9} className="animate-spin text-brand-500" />
+                        <RefreshCw size={11} className="animate-spin text-brand-500" />
                       ) : (
-                        <span className="underline select-none">Verify Listing</span>
+                        <span>Verify Listing</span>
                       )}
                     </button>
                     {urlStatus && (
-                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold border ${
+                      <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold ${
                         urlStatus.is_active
                           ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
                           : 'bg-red-500/10 border-red-500/20 text-red-400'
@@ -265,61 +263,61 @@ export default function JobDetail() {
               </div>
             </div>
           </div>
-          <select
-            value={job.status}
-            onChange={handleStatusChange}
-            className="select py-1 px-2 text-[11px] w-auto border-zinc-200 dark:border-zinc-700 font-medium"
-          >
-            {Object.keys(STATUS_CONFIG).map(s => <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>)}
-          </select>
+          <div className="w-full lg:w-auto">
+            <label className="label">Status</label>
+            <select
+              value={job.status}
+              onChange={handleStatusChange}
+              className="select w-full border-zinc-200 font-medium dark:border-zinc-700 lg:min-w-[13rem]"
+            >
+              {Object.keys(STATUS_CONFIG).map(s => <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>)}
+            </select>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        {/* Left: Notes & Description */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-3">
-          {/* Notes */}
           <div className="card">
             <div className="card-header">
-              <h3 className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">Notes</h3>
+              <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Notes</h3>
               {!isEditingNotes ? (
-                <button onClick={() => setIsEditingNotes(true)} className="btn-ghost p-0.5"><Edit size={12} /></button>
+                <button onClick={() => setIsEditingNotes(true)} className="btn-ghost h-9 w-9 rounded-2xl p-0"><Edit size={14} /></button>
               ) : (
                 <div className="flex items-center gap-1">
-                  <button onClick={handleSaveNotes} className="btn-ghost p-0.5 text-emerald-600 dark:text-emerald-400"><Save size={12} /></button>
-                  <button onClick={() => { setNotesVal(job.notes || ''); setIsEditingNotes(false) }} className="btn-ghost p-0.5 text-red-600 dark:text-red-400"><X size={12} /></button>
+                  <button onClick={handleSaveNotes} className="btn-ghost h-9 w-9 rounded-2xl p-0 text-emerald-600 dark:text-emerald-400"><Save size={14} /></button>
+                  <button onClick={() => { setNotesVal(job.notes || ''); setIsEditingNotes(false) }} className="btn-ghost h-9 w-9 rounded-2xl p-0 text-red-600 dark:text-red-400"><X size={14} /></button>
                 </div>
               )}
             </div>
             <div className="card-body">
               {isEditingNotes ? (
-                <textarea className="input resize-none w-full" rows={4} value={notesVal} onChange={e => setNotesVal(e.target.value)} />
+                <textarea className="input min-h-[10rem] w-full resize-y" rows={5} value={notesVal} onChange={e => setNotesVal(e.target.value)} />
               ) : (
-                <div className="whitespace-pre-wrap text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                <div className="whitespace-pre-wrap text-sm leading-7 text-zinc-700 dark:text-zinc-300">
                   {job.notes || <span className="text-zinc-400 dark:text-zinc-600 italic">No notes.</span>}
                 </div>
               )}
             </div>
           </div>
 
-          {/* Job Description */}
           <div className="card">
             <div className="card-header">
-              <h3 className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">Job Description</h3>
+              <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Job Description</h3>
               {!isEditingDesc ? (
-                <button onClick={() => setIsEditingDesc(true)} className="btn-ghost p-0.5"><Edit size={12} /></button>
+                <button onClick={() => setIsEditingDesc(true)} className="btn-ghost h-9 w-9 rounded-2xl p-0"><Edit size={14} /></button>
               ) : (
                 <div className="flex items-center gap-1">
-                  <button onClick={handleSaveDesc} className="btn-ghost p-0.5 text-emerald-600 dark:text-emerald-400"><Save size={12} /></button>
-                  <button onClick={() => { setDescVal(job.job_description || ''); setIsEditingDesc(false) }} className="btn-ghost p-0.5 text-red-600 dark:text-red-400"><X size={12} /></button>
+                  <button onClick={handleSaveDesc} className="btn-ghost h-9 w-9 rounded-2xl p-0 text-emerald-600 dark:text-emerald-400"><Save size={14} /></button>
+                  <button onClick={() => { setDescVal(job.job_description || ''); setIsEditingDesc(false) }} className="btn-ghost h-9 w-9 rounded-2xl p-0 text-red-600 dark:text-red-400"><X size={14} /></button>
                 </div>
               )}
             </div>
             <div className="card-body">
               {isEditingDesc ? (
-                <textarea className="input resize-none w-full" rows={8} value={descVal} onChange={e => setDescVal(e.target.value)} />
+                <textarea className="input min-h-[18rem] w-full resize-y" rows={10} value={descVal} onChange={e => setDescVal(e.target.value)} />
               ) : (
-                <div className="whitespace-pre-wrap text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                <div className="whitespace-pre-wrap text-sm leading-7 text-zinc-700 dark:text-zinc-300">
                   {job.job_description || <span className="text-zinc-400 dark:text-zinc-600 italic">No description. Add one to enable AI matching.</span>}
                 </div>
               )}
@@ -327,20 +325,17 @@ export default function JobDetail() {
           </div>
         </div>
 
-        {/* Right: AI Match & Actions */}
         <div className="space-y-3">
-          {/* AI Match */}
           <div className="card">
             <div className="card-header">
               <div className="flex items-center gap-1.5">
-                <Zap size={11} className="text-zinc-500" />
-                <h3 className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">Match Analysis</h3>
+                <Zap size={14} className="text-zinc-500" />
+                <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Match Analysis</h3>
               </div>
             </div>
             <div className="card-body">
               {job.ai_match_score !== null ? (
                 <div className="space-y-3">
-                  {/* Score block */}
                   <div className={`flex items-center justify-between p-3 rounded border ${getScoreColor(job.ai_match_score)}`}>
                     <div>
                       <p className="text-[10px] font-semibold uppercase tracking-wider opacity-70">Score</p>
@@ -349,7 +344,6 @@ export default function JobDetail() {
                     <span className="text-[11px] font-medium opacity-80">{getScoreLabel(job.ai_match_score)}</span>
                   </div>
 
-                  {/* Explanation */}
                   <div className="border-t border-zinc-200 dark:border-zinc-800 pt-2">
                     <p className="font-semibold text-zinc-500 dark:text-zinc-400 mb-2 text-[10px] uppercase tracking-wider">Assessment</p>
                     <StrengthsGaps explanation={job.ai_match_explanation} score={job.ai_match_score} />
@@ -383,10 +377,9 @@ export default function JobDetail() {
             </div>
           </div>
 
-          {/* Actions */}
           <div className="card">
             <div className="card-header">
-              <h3 className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">Actions</h3>
+              <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Actions</h3>
             </div>
             <div className="card-body">
               <button onClick={handleDelete} className="btn-danger w-full justify-center text-[11px]">

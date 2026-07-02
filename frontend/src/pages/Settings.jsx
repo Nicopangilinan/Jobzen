@@ -84,7 +84,7 @@ export default function Settings() {
   const isAiReady = user?.resume_text || user?.profile_summary
 
   return (
-    <div className="max-w-2xl space-y-6 animate-fade-in">
+    <div className="max-w-4xl space-y-6 animate-fade-in">
       {toast && (
         <Toast
           type={toast.type}
@@ -95,22 +95,22 @@ export default function Settings() {
       )}
 
       <div>
-        <h1 className="text-2xl font-bold text-slate-100">Settings</h1>
-        <p className="text-slate-400 text-sm mt-1">Manage your profile and AI matching preferences.</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-zinc-400 dark:text-zinc-500">Preferences</p>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50 sm:text-3xl">Settings</h1>
+        <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">Manage your profile, resume, and AI matching preferences.</p>
       </div>
 
-      {/* AI Feature Banner */}
-      <div className={`rounded-xl border p-4 flex items-start gap-3 transition-all ${
+      <div className={`flex items-start gap-3 rounded-3xl border p-4 transition-all sm:p-5 ${
         isAiReady
-          ? 'bg-emerald-500/5 border-emerald-500/20'
-          : 'bg-brand-500/5 border-brand-500/20'
+          ? 'border-emerald-500/20 bg-emerald-50/70 dark:bg-emerald-950/10'
+          : 'border-brand-500/20 bg-brand-50/70 dark:bg-brand-500/10'
       }`}>
-        <Sparkles size={18} className={isAiReady ? 'text-emerald-400 mt-0.5 shrink-0' : 'text-brand-400 mt-0.5 shrink-0'} />
+        <Sparkles size={18} className={isAiReady ? 'mt-0.5 shrink-0 text-emerald-400' : 'mt-0.5 shrink-0 text-brand-400'} />
         <div>
-          <p className={`text-sm font-medium ${isAiReady ? 'text-emerald-300' : 'text-brand-300'}`}>
+          <p className={`text-sm font-semibold ${isAiReady ? 'text-emerald-700 dark:text-emerald-300' : 'text-brand-700 dark:text-brand-300'}`}>
             {isAiReady ? 'AI Matching Enabled' : 'Enable AI Job Matching'}
           </p>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="mt-1 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
             {isAiReady
               ? 'Your resume/profile is active. The AI uses both your full CV text and any additional notes you write below for maximum matching accuracy.'
               : 'Upload a Resume/CV or fill in your Profile Notes below to unlock AI match scoring.'}
@@ -119,31 +119,30 @@ export default function Settings() {
       </div>
 
       <form onSubmit={submit} className="space-y-6">
-        {/* Resume Card */}
-        <div className="card p-6 space-y-4">
-          <div className="flex items-center justify-between">
+        <div className="card p-5 space-y-4 sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
-              <FileText size={15} className="text-slate-400" />
-              <h2 className="text-sm font-semibold text-slate-300">Resume / CV</h2>
+              <FileText size={16} className="text-zinc-400" />
+              <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Resume / CV</h2>
             </div>
-            <span className="text-[10px] bg-brand-500/10 text-brand-300 font-medium px-2 py-0.5 rounded-full border border-brand-500/20">
+            <span className="w-fit rounded-full border border-brand-500/20 bg-brand-500/10 px-2.5 py-1 text-[10px] font-medium text-brand-700 dark:text-brand-300">
               Recommended
             </span>
           </div>
 
-          <p className="text-xs text-slate-400">
+          <p className="text-sm leading-6 text-zinc-500 dark:text-zinc-400">
             Upload your resume (PDF). We will extract the full text and use it verbatim for AI job matching — no information is left behind. An AI summary will also be auto-generated in the field below.
           </p>
 
           {user?.resume_text ? (
-            <div className="flex items-center justify-between p-3.5 bg-emerald-500/5 border border-emerald-500/20 rounded-lg">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg">
+            <div className="flex flex-col gap-4 rounded-2xl border border-emerald-500/20 bg-emerald-50/70 p-4 dark:bg-emerald-950/10 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="rounded-2xl bg-emerald-500/10 p-3 text-emerald-500">
                   <FileText size={18} />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-emerald-300">Resume active for matching</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">
+                  <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Resume active for matching</p>
+                  <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                     {user.resume_text.length.toLocaleString()} characters extracted from your CV
                   </p>
                 </div>
@@ -151,13 +150,13 @@ export default function Settings() {
               <button
                 type="button"
                 onClick={handleCvRemove}
-                className="text-xs text-slate-400 hover:text-red-400 transition-colors p-1.5 hover:bg-red-500/10 rounded-lg"
+                className="btn-secondary w-full sm:w-auto"
               >
                 Remove
               </button>
             </div>
           ) : (
-            <div className="relative group border border-dashed border-slate-700 hover:border-brand-500/50 rounded-xl p-6 transition-all bg-surface-900/50 hover:bg-surface-900/80 flex flex-col items-center justify-center text-center cursor-pointer">
+            <div className="group relative flex cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed border-zinc-300 bg-zinc-50/70 p-6 text-center transition-all hover:border-brand-500/40 hover:bg-brand-50/60 dark:border-zinc-800 dark:bg-zinc-900/50 dark:hover:bg-zinc-900/80">
               <input
                 type="file"
                 accept=".pdf"
@@ -165,28 +164,27 @@ export default function Settings() {
                 disabled={uploading}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
-              <UploadCloud size={28} className={`text-slate-500 transition-transform duration-300 group-hover:-translate-y-0.5 ${uploading ? 'animate-bounce text-brand-400' : 'group-hover:text-brand-400'}`} />
-              <p className="text-sm font-medium text-slate-300 mt-3">
+              <UploadCloud size={30} className={`text-zinc-500 transition-transform duration-300 group-hover:-translate-y-0.5 ${uploading ? 'animate-bounce text-brand-400' : 'group-hover:text-brand-400'}`} />
+              <p className="mt-3 text-base font-semibold text-zinc-900 dark:text-zinc-100">
                 {uploading ? 'Extracting and summarizing…' : 'Upload your resume (PDF)'}
               </p>
-              <p className="text-[11px] text-slate-500 mt-1">
+              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                 {uploading ? 'AI is reading your resume, this takes a few seconds' : 'Drag and drop, or click to browse'}
               </p>
             </div>
           )}
         </div>
 
-        {/* Profile Card */}
-        <div className="card p-6 space-y-4">
+        <div className="card p-5 space-y-5 sm:p-6">
           <div className="flex items-center gap-2 mb-1">
-            <User size={15} className="text-slate-400" />
-            <h2 className="text-sm font-semibold text-slate-300">Profile</h2>
+            <User size={16} className="text-zinc-400" />
+            <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Profile</h2>
           </div>
 
           <div>
             <label className="label">Full Name</label>
             <input
-              className="input max-w-md"
+              className="input max-w-xl"
               value={form.name}
               onChange={e => set('name', e.target.value)}
               placeholder="Your full name"
@@ -196,11 +194,11 @@ export default function Settings() {
           <div>
             <label className="label">Email Address</label>
             <input
-              className="input max-w-md bg-surface-800 text-slate-500 cursor-not-allowed"
+              className="input max-w-xl cursor-not-allowed bg-zinc-100 text-zinc-500 dark:bg-zinc-900"
               value={user?.email || ''}
               disabled
             />
-            <p className="text-xs text-slate-500 mt-1">Email is managed by Google OAuth and cannot be changed.</p>
+            <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">Email is managed by Google OAuth and cannot be changed.</p>
           </div>
 
           <div>
@@ -209,52 +207,50 @@ export default function Settings() {
                 <Sparkles size={12} className="inline mr-1 text-brand-400" />
                 AI Profile Notes <span className="text-brand-400">(Supplements your Resume)</span>
               </label>
-              <span className={`text-[10px] font-medium ${profileWordCount >= 20 ? 'text-emerald-400' : 'text-slate-500'}`}>
+              <span className={`text-[10px] font-medium ${profileWordCount >= 20 ? 'text-emerald-500' : 'text-zinc-500 dark:text-zinc-400'}`}>
                 {profileWordCount} words
               </span>
             </div>
 
-            {/* Info callout */}
-            <div className="flex items-start gap-2 bg-brand-500/5 border border-brand-500/15 rounded-lg px-3 py-2.5 mb-2">
+            <div className="mb-3 flex items-start gap-2 rounded-2xl border border-brand-500/15 bg-brand-500/5 px-3 py-3">
               <Info size={13} className="text-brand-400 mt-0.5 shrink-0" />
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                This field <span className="text-slate-200 font-medium">adds to</span> your uploaded CV during AI matching — it is not a replacement. Use it to specify job preferences, desired role level, preferred work style, or anything your resume doesn't cover (e.g. <em>"I'm only looking for senior remote roles in product-led companies"</em>). If no CV is uploaded, this is used alone.
+              <p className="text-sm leading-6 text-zinc-500 dark:text-zinc-400">
+                This field <span className="font-medium text-zinc-800 dark:text-zinc-200">adds to</span> your uploaded CV during AI matching — it is not a replacement. Use it to specify job preferences, desired role level, preferred work style, or anything your resume doesn't cover.
               </p>
             </div>
 
             <textarea
-              className="input resize-none"
-              rows={6}
+              className="input min-h-[11rem] resize-y"
+              rows={7}
               placeholder={`Add preferences and context your resume may not cover. For example:\n\nI'm looking for senior-level remote or hybrid roles at product-driven companies. I prefer teams that value autonomy, fast iteration, and strong engineering culture. Open to startups (Series A+) or mid-sized tech companies.`}
               value={form.profile_summary}
               onChange={e => set('profile_summary', e.target.value)}
             />
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
               Be specific about role preferences, seniority, location, and work style for the most accurate AI matching results.
             </p>
           </div>
         </div>
 
-        {/* Notifications Card */}
-        <div className="card p-6 space-y-4">
+        <div className="card p-5 space-y-4 sm:p-6">
           <div className="flex items-center gap-2 mb-1">
-            <Bell size={15} className="text-slate-400" />
-            <h2 className="text-sm font-semibold text-slate-300">Notifications</h2>
+            <Bell size={16} className="text-zinc-400" />
+            <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Notifications</h2>
           </div>
 
-          <label className="flex items-center justify-between gap-4 cursor-pointer group">
+          <label className="group flex items-center justify-between gap-4 rounded-2xl border border-zinc-200 bg-zinc-50/70 px-4 py-4 dark:border-zinc-800 dark:bg-zinc-950/60">
             <div>
-              <p className="text-sm text-slate-200 group-hover:text-slate-100 transition-colors">Email Notifications</p>
-              <p className="text-xs text-slate-500 mt-0.5">Receive follow-up reminders and weekly summaries.</p>
+              <p className="text-sm font-semibold text-zinc-900 transition-colors group-hover:text-zinc-700 dark:text-zinc-100 dark:group-hover:text-zinc-50">Email Notifications</p>
+              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Receive follow-up reminders and weekly summaries.</p>
             </div>
             <button
               type="button"
               onClick={() => set('email_notifications', !form.email_notifications)}
-              className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
-                form.email_notifications ? 'bg-brand-500' : 'bg-surface-600'
+              className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
+                form.email_notifications ? 'bg-brand-500' : 'bg-zinc-300 dark:bg-zinc-700'
               }`}
             >
-              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${
+              <span className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
                 form.email_notifications ? 'translate-x-5' : 'translate-x-0'
               }`} />
             </button>
@@ -264,7 +260,7 @@ export default function Settings() {
         <button
           type="submit"
           disabled={saving}
-          className="btn-primary w-full justify-center py-2.5"
+          className="btn-primary w-full justify-center"
         >
           {saving ? 'Saving…' : 'Save Changes'}
         </button>
