@@ -4,6 +4,12 @@
   "installCommand": "cd frontend && npm install",
   "buildCommand": "cd frontend && npm run build",
   "outputDirectory": "frontend/dist",
+  "crons": [
+    {
+      "path": "/api/v1/cron/daily-job-status-sweep",
+      "schedule": "0 18 * * *"
+    }
+  ],
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/index.py" },
     { "src": "/auth/(.*)", "dest": "/api/index.py" },
@@ -12,4 +18,3 @@
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
-

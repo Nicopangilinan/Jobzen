@@ -41,7 +41,6 @@ export default function Jobs() {
     <div className="flex h-full flex-col space-y-4">
       <div className="flex shrink-0 flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="page-title text-2xl sm:text-[2rem]">Applications</h1>
           <p className="page-subtitle">
             {jobs.length} application{jobs.length !== 1 ? 's' : ''} in pipeline
           </p>

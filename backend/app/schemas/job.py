@@ -55,6 +55,7 @@ class JobResponse(BaseModel):
     ai_match_score: float | None = None
     ai_match_explanation: str | None = None
     is_active: bool = True
+    last_checked_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -63,4 +64,3 @@ class JobResponse(BaseModel):
 
 class JobScrapeRequest(BaseModel):
     url: str
-

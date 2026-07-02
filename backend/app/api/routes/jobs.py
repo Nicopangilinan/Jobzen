@@ -7,7 +7,8 @@ from app.db.session import get_db
 from app.models.job import Job
 from app.schemas.job import JobCreate, JobUpdate, JobResponse, JobScrapeRequest
 from app.api.deps import CurrentUser
-from app.core.services import scrape_job_url, calculate_match_score, check_job_active
+from app.core.services import scrape_job_url, calculate_match_score
+from app.core.job_status import refresh_job_listing_status
 from app.config import get_settings
 import uuid
 import urllib.parse
@@ -229,22 +230,7 @@ async def check_job_status(
             detail="Cannot verify status because this job has no posting URL."
         )
 
-    status_data = await check_job_active(job.job_url)
-    
-    is_active = status_data.get("is_active", True)
-    job.is_active = is_active
-    
-    if not is_active:
-        job.status = "withdrawn"
-        
-    await db.commit()
-    await db.refresh(job)
-    
-    return {
-        "is_active": job.is_active,
-        "reason": status_data.get("reason", "Unknown"),
-        "status": job.status
-    }
+    return await refresh_job_listing_status(db, job)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
