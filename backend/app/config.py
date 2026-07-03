@@ -4,19 +4,14 @@ from functools import lru_cache
 
 class Settings(BaseSettings):
     # Database
-    database_url: str = "postgresql+asyncpg://jobtracker:jobtracker_pass@db:5432/jobtracker"
-    postgres_user: str = "jobtracker"
-    postgres_password: str = "jobtracker_pass"
-    postgres_db: str = "jobtracker"
+    database_url: str
 
     # Auth
-    # IMPORTANT: do not hardcode secrets in the repository.
-    # Set these via environment variables in Vercel (Project Settings → Environment Variables).
-    google_client_id: str = ""
-    google_client_secret: str = ""
-    jwt_secret: str = "change-me"
+    jwt_secret: str
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 10080  # 7 days
+    google_client_id: str = ""
+    google_client_secret: str = ""
 
     # App
     frontend_url: str = "http://localhost:3000"
@@ -37,15 +32,12 @@ class Settings(BaseSettings):
 
     # Logo API
     logodev_api_key: str = ""
-    clearbit_api_key: str = ""
 
     # Job status scheduler
     enable_in_process_scheduler: bool = False
     job_status_sweep_hour: int = 2
     job_status_sweep_minute: int = 0
     job_status_check_delay_seconds: int = 6
-
-    # Cron security (for Vercel Cron / external schedulers calling an endpoint)
     cron_secret: str = ""
 
     model_config = {"env_file": ".env", "case_sensitive": False}
