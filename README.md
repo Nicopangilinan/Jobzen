@@ -24,6 +24,7 @@ JobZen is a full-stack SaaS-style job application tracker built to eliminate the
 **Who it's for:** Active job seekers, especially in tech, who run structured, high-volume searches and want data and AI to guide prioritization.
 
 **Key objectives:**
+
 - Eliminate manual data entry via AI-powered URL scraping
 - Give users a quantified signal — not just a feeling — about role fit
 - Automatically detect dead/closed listings before wasted follow-up effort
@@ -34,18 +35,21 @@ JobZen is a full-stack SaaS-style job application tracker built to eliminate the
 ## Project Highlights
 
 ### Intelligence Layer
+
 - **AI Job Scraper** — Paste a job URL; the backend fetches, cleans, and sends the page to an LLM to return structured JSON (title, company, salary, location, work type, description). No manual copy-pasting.
 - **Resume Match Scoring** — Uploads a PDF resume, extracts full text, and runs it against any job description through an LLM to return a 0–100 match score with itemized strengths and gaps.
 - **Live Listing Verification** — Per-job endpoint that re-scrapes the original URL and uses an LLM to determine if the posting is still accepting applications. Dead listings are auto-flagged.
 - **Multi-LLM Fallback Chain** — Gemini → Claude → Ollama → HTML/JSON-LD heuristics. No single point of AI failure.
 
 ### Application Management
+
 - **Kanban + Table dual-view** — Switch between a status-column board and a sortable table, both driven from the same state.
 - **Full job lifecycle** — Applied → Interviewing → Offer / Rejected / Withdrawn, with PATCH-based partial updates.
 - **Company logos** — Automatically resolved via logo.dev from the job URL domain or company name, with intelligent filtering of job board domains.
 - **Notes + Description editing** — Inline, optimistic editing with save/cancel controls, no separate edit page.
 
 ### Infrastructure & Automation
+
 - **Dual-mode scheduler** — In-process APScheduler for Docker deployments; external Vercel Cron job (`0 18 * * *`) calling a secured HTTP endpoint for serverless deployments. Secret-authenticated via `x-cron-secret` or Bearer token.
 - **HTTP-only JWT cookies** — Stateless auth with no `localStorage` exposure. Cookie flags adapt between dev (`secure: false`) and production (`secure: true`, `samesite: lax`).
 - **Async throughout** — FastAPI + `asyncpg` + SQLAlchemy async ORM. No blocking I/O anywhere in the hot path.
@@ -54,30 +58,30 @@ JobZen is a full-stack SaaS-style job application tracker built to eliminate the
 
 ## Technology Stack
 
-| Layer | Technology | Rationale |
-|---|---|---|
-| **Frontend Framework** | React 18 + Vite | Fast HMR, ESM-native, minimal config overhead |
-| **Styling** | Tailwind CSS v3 | Utility-first with consistent design tokens; no runtime CSS |
-| **Charts** | Recharts | Composable, React-native charting for the stats dashboard |
-| **Icons** | Lucide React | Consistent, tree-shakeable icon set |
-| **Date Formatting** | date-fns | Lightweight alternative to moment.js; tree-shakeable |
-| **Drag & Drop** | dnd-kit | Accessible, headless DnD primitives (kanban-ready) |
-| **Backend Framework** | FastAPI 0.111 | Native async, automatic OpenAPI, Pydantic v2 validation |
-| **ORM** | SQLAlchemy 2 (async) | Typed mapped columns, async session, relationship cascade |
-| **Database** | PostgreSQL 16 | ACID-compliant, UUID primary keys, indexed enums |
-| **Migrations** | Alembic | Schema version control, autogenerate support |
-| **Auth** | Google OAuth 2.0 + JWT | No password storage; JWT in HTTP-only cookies |
-| **AI — Primary** | Gemini 2.5 Flash | Fast, cost-efficient; JSON-mode response guaranteed |
-| **AI — Secondary** | Claude 3 Haiku | High-quality fallback via Anthropic SDK |
-| **AI — Tertiary** | Ollama (Mistral) | Local/offline fallback; zero API cost |
-| **HTTP Client** | httpx (async) | Async-native, used for scraping and LLM API calls |
-| **HTML Parsing** | BeautifulSoup4 | JSON-LD extraction + structural heuristics fallback |
-| **PDF Parsing** | pypdf | Server-side PDF text extraction from uploaded resumes |
-| **Scheduler** | APScheduler + Vercel Cron | Dual-mode: in-process for Docker, webhook-triggered for serverless |
-| **Config** | pydantic-settings | Typed, env-file-backed settings with `lru_cache` singleton |
-| **Containerization** | Docker Compose | Three-service stack: PostgreSQL, FastAPI, React |
-| **Deployment** | Vercel (serverless) | Zero-infra frontend + Python serverless functions |
-| **Logo API** | logo.dev | Company logo resolution from domain inference |
+| Layer                  | Technology                | Rationale                                                          |
+| ---------------------- | ------------------------- | ------------------------------------------------------------------ |
+| **Frontend Framework** | React 18 + Vite           | Fast HMR, ESM-native, minimal config overhead                      |
+| **Styling**            | Tailwind CSS v3           | Utility-first with consistent design tokens; no runtime CSS        |
+| **Charts**             | Recharts                  | Composable, React-native charting for the stats dashboard          |
+| **Icons**              | Lucide React              | Consistent, tree-shakeable icon set                                |
+| **Date Formatting**    | date-fns                  | Lightweight alternative to moment.js; tree-shakeable               |
+| **Drag & Drop**        | dnd-kit                   | Accessible, headless DnD primitives (kanban-ready)                 |
+| **Backend Framework**  | FastAPI 0.111             | Native async, automatic OpenAPI, Pydantic v2 validation            |
+| **ORM**                | SQLAlchemy 2 (async)      | Typed mapped columns, async session, relationship cascade          |
+| **Database**           | PostgreSQL 16             | ACID-compliant, UUID primary keys, indexed enums                   |
+| **Migrations**         | Alembic                   | Schema version control, autogenerate support                       |
+| **Auth**               | Google OAuth 2.0 + JWT    | No password storage; JWT in HTTP-only cookies                      |
+| **AI — Primary**       | Gemini 2.5 Flash          | Fast, cost-efficient; JSON-mode response guaranteed                |
+| **AI — Secondary**     | Claude 3 Haiku            | High-quality fallback via Anthropic SDK                            |
+| **AI — Tertiary**      | Ollama (Mistral)          | Local/offline fallback; zero API cost                              |
+| **HTTP Client**        | httpx (async)             | Async-native, used for scraping and LLM API calls                  |
+| **HTML Parsing**       | BeautifulSoup4            | JSON-LD extraction + structural heuristics fallback                |
+| **PDF Parsing**        | pypdf                     | Server-side PDF text extraction from uploaded resumes              |
+| **Scheduler**          | APScheduler + Vercel Cron | Dual-mode: in-process for Docker, webhook-triggered for serverless |
+| **Config**             | pydantic-settings         | Typed, env-file-backed settings with `lru_cache` singleton         |
+| **Containerization**   | Docker Compose            | Three-service stack: PostgreSQL, FastAPI, React                    |
+| **Deployment**         | Vercel (serverless)       | Zero-infra frontend + Python serverless functions                  |
+| **Logo API**           | logo.dev                  | Company logo resolution from domain inference                      |
 
 ---
 
@@ -241,6 +245,7 @@ Every I/O operation — database queries, HTTP scraping, LLM API calls — is fu
 ### Multi-LLM Fallback Chain
 
 Rather than coupling to a single AI provider, the scraping and analysis services implement a priority waterfall: **Gemini → Claude → Ollama → Heuristics**. Each level is tried independently; if it raises an exception, the next is attempted. This means:
+
 - No single-provider outage breaks the feature
 - Local development works without any API keys (Ollama)
 - The HTML/JSON-LD fallback ensures some data is always returned
@@ -258,6 +263,7 @@ All mutation endpoints use HTTP `PATCH` with `model_dump(exclude_unset=True)`. T
 ### Dual-Mode Job Status Scheduler
 
 Serverless platforms (Vercel) can't run persistent background threads. The scheduler was designed with two modes:
+
 1. **Docker/self-hosted**: APScheduler runs in-process, triggered on the FastAPI `lifespan` event
 2. **Vercel**: A Cron Job calls `GET /api/v1/cron/daily-job-status-sweep` at 18:00 UTC daily, authenticated by a shared secret header
 
@@ -351,30 +357,30 @@ HTML pages are stripped of all `<script>`, `<style>`, `<nav>`, `<footer>`, and `
 
 ## Future Improvements
 
-| Priority | Enhancement |
-|---|---|
-| High | Interview scheduler with calendar integration (Google Calendar API) |
-| High | Email notification system for follow-up reminders and weekly pipeline summaries |
-| High | Drag-and-drop Kanban card reordering with status auto-update via dnd-kit |
-| Medium | Application analytics: time-to-offer, rejection patterns, source tracking |
-| Medium | Resume version management (upload and label multiple CV versions) |
-| Medium | Browser extension to capture job postings directly from the source page |
-| Medium | Bulk import from LinkedIn / Indeed via CSV export parsing |
-| Low | WebSocket-based real-time status updates during AI operations |
-| Low | Multi-user organization mode for shared job search sessions |
-| Low | GraphQL API layer for more flexible frontend querying |
+| Priority | Enhancement                                                                     |
+| -------- | ------------------------------------------------------------------------------- |
+| High     | Interview scheduler with calendar integration (Google Calendar API)             |
+| High     | Email notification system for follow-up reminders and weekly pipeline summaries |
+| High     | Drag-and-drop Kanban card reordering with status auto-update via dnd-kit        |
+| Medium   | Application analytics: time-to-offer, rejection patterns, source tracking       |
+| Medium   | Resume version management (upload and label multiple CV versions)               |
+| Medium   | Browser extension to capture job postings directly from the source page         |
+| Medium   | Bulk import from LinkedIn / Indeed via CSV export parsing                       |
+| Low      | WebSocket-based real-time status updates during AI operations                   |
+| Low      | Multi-user organization mode for shared job search sessions                     |
+| Low      | GraphQL API layer for more flexible frontend querying                           |
 
 ---
 
 ## Project Gallery
 
-| Feature | Screenshot |
-|---|---|
+| Feature                           | Screenshot                                                                     |
+| --------------------------------- | ------------------------------------------------------------------------------ |
 | **Dashboard & Pipeline Overview** | Snapshot overview with status distribution pie chart and response rate metrics |
-| **Kanban Board** | Status-column job board with company logos and expired badges |
-| **AI Match Analysis** | Per-job match score with strengths/gaps panel generated by LLM |
-| **URL Auto-Fill** | One-click job detail extraction from any posting URL |
-| **Settings / Resume Upload** | PDF upload with AI-generated profile summary and notification controls |
+| **Kanban Board**                  | Status-column job board with company logos and expired badges                  |
+| **AI Match Analysis**             | Per-job match score with strengths/gaps panel generated by LLM                 |
+| **URL Auto-Fill**                 | One-click job detail extraction from any posting URL                           |
+| **Settings / Resume Upload**      | PDF upload with AI-generated profile summary and notification controls         |
 
 ---
 
@@ -399,6 +405,6 @@ This project is licensed under the **MIT License**.
 
 <div align="center">
 
-Built by [Nico Pangilinan](https://github.com/Nicopangilinan) · Portfolio Project · 2026
+Built by [Nico Pangilinan](https://github.com/Nicopangilinan) · 2026
 
 </div>

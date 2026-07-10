@@ -101,14 +101,14 @@ def extract_metadata_from_html(html: str) -> dict:
                 
         # 2. Extract from standard OpenGraph/Meta tags if fields are still empty
         if not data["job_title"]:
-            og_title = soup.find("meta", property="og:title") or soup.find("meta", name="twitter:title")
+            og_title = soup.find("meta", property="og:title") or soup.find("meta", attrs={"name": "twitter:title"})
             if og_title and og_title.get("content"):
                 data["job_title"] = og_title["content"]
             elif soup.title:
                 data["job_title"] = soup.title.string.strip()
                 
         if not data["company_name"]:
-            og_site = soup.find("meta", property="og:site_name") or soup.find("meta", name="twitter:site")
+            og_site = soup.find("meta", property="og:site_name") or soup.find("meta", attrs={"name": "twitter:site"})
             if og_site and og_site.get("content"):
                 data["company_name"] = og_site["content"]
                 
@@ -126,7 +126,7 @@ def extract_metadata_from_html(html: str) -> dict:
                     break
                     
         if not data["job_description"]:
-            og_desc = soup.find("meta", property="og:description") or soup.find("meta", name="description")
+            og_desc = soup.find("meta", property="og:description") or soup.find("meta", attrs={"name": "description"})
             if og_desc and og_desc.get("content"):
                 data["job_description"] = og_desc["content"].strip()
                 
