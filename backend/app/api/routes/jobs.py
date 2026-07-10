@@ -155,7 +155,7 @@ async def scrape_job(
 ):
     """Scrape details from a job posting URL."""
     try:
-        data = await scrape_job_url(payload.url)
+        data = await scrape_job_url(payload.url, html=payload.html)
         # Add logo
         company_name = data.get("company_name", "")
         if company_name:

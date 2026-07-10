@@ -245,34 +245,40 @@ def _extract_json_object(text: str) -> dict:
         raise
 
 
-async def scrape_job_url(url: str) -> dict:
-    """Scrape HTML from a job posting URL and use LLM (Claude/Gemini) to extract structured details."""
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
-        ),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-    }
-    
-    try:
-        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-            response = await client.get(url, headers=headers)
-            response.raise_for_status()
-            html = response.text
-    except Exception as e:
-        logger.error(f"Failed to fetch URL {url}: {e}")
-        return {
-            "company_name": "",
-            "job_title": "",
-            "location": "",
-            "salary_min": None,
-            "salary_max": None,
-            "currency": "USD",
-            "job_description": "",
-            "work_type": "unknown",
+async def scrape_job_url(url: str, html: str = None) -> dict:
+    """Scrape HTML from a job posting URL and use LLM (Claude/Gemini) to extract structured details.
+    If html is provided (e.g. from the browser extension), skip the HTTP fetch entirely.
+    """
+    if html:
+        # HTML already provided by the browser extension — skip server-side fetch
+        pass
+    else:
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
         }
+        
+        try:
+            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+                response = await client.get(url, headers=headers)
+                response.raise_for_status()
+                html = response.text
+        except Exception as e:
+            logger.error(f"Failed to fetch URL {url}: {e}")
+            return {
+                "company_name": "",
+                "job_title": "",
+                "location": "",
+                "salary_min": None,
+                "salary_max": None,
+                "currency": "USD",
+                "job_description": "",
+                "work_type": "unknown",
+            }
 
     # Clean the HTML to extract content text
     soup = BeautifulSoup(html, "html.parser")

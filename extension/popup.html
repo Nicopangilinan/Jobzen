@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JobZen Capture</title>
+  <link rel="stylesheet" href="popup.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- ───── State: Not Authenticated ───── -->
+  <div id="state-auth" class="state hidden">
+    <div class="logo-area">
+      <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M20 7h-4l-2-3H6L4 7H2a1 1 0 0 0-1 1v10a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2V8a1 1 0 0 0-1-1Z"/>
+        <circle cx="12" cy="14" r="3"/>
+      </svg>
+      <h1 class="logo-text">JobZen</h1>
+    </div>
+    <p class="msg">Sign in to <a href="https://jobzenn.vercel.app" target="_blank">jobzenn.vercel.app</a> first, then try again.</p>
+    <button id="btn-retry-auth" class="btn btn-primary btn-block">Retry</button>
+  </div>
+
+  <!-- ───── State: Ready to capture ───── -->
+  <div id="state-ready" class="state hidden">
+    <div class="header">
+      <div class="logo-area-sm">
+        <svg class="logo-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 7h-4l-2-3H6L4 7H2a1 1 0 0 0-1 1v10a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2V8a1 1 0 0 0-1-1Z"/>
+          <circle cx="12" cy="14" r="3"/>
+        </svg>
+        <span class="logo-text-sm">JobZen</span>
+      </div>
+      <span id="page-url" class="page-url" title=""></span>
+    </div>
+    <button id="btn-capture" class="btn btn-primary btn-block btn-capture">
+      <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Capture Job Posting
+    </button>
+  </div>
+
+  <!-- ───── State: Extracting ───── -->
+  <div id="state-loading" class="state hidden">
+    <div class="loader-container">
+      <div class="loader"></div>
+      <p class="msg">Extracting job details…</p>
+      <p class="msg-sub">Using Gemini AI to parse the page</p>
+    </div>
+  </div>
+
+  <!-- ───── State: Results (editable form) ───── -->
+  <div id="state-results" class="state hidden">
+    <div class="header">
+      <div class="logo-area-sm">
+        <svg class="logo-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 7h-4l-2-3H6L4 7H2a1 1 0 0 0-1 1v10a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2V8a1 1 0 0 0-1-1Z"/>
+          <circle cx="12" cy="14" r="3"/>
+        </svg>
+        <span class="logo-text-sm">JobZen</span>
+      </div>
+      <span class="badge badge-success">Extracted</span>
+    </div>
+
+    <form id="job-form" class="form">
+      <div class="form-row">
+        <div class="form-group flex-1">
+          <label class="label" for="f-company">Company</label>
+          <input id="f-company" class="input" type="text" placeholder="Company name" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="label" for="f-title">Job Title</label>
+        <input id="f-title" class="input" type="text" placeholder="Job title" required>
+      </div>
+      <div class="form-group">
+        <label class="label" for="f-location">Location</label>
+        <input id="f-location" class="input" type="text" placeholder="City, Country">
+      </div>
+      <div class="form-row">
+        <div class="form-group flex-1">
+          <label class="label" for="f-salary-min">Min Salary</label>
+          <input id="f-salary-min" class="input" type="number" placeholder="0">
+        </div>
+        <div class="form-group flex-1">
+          <label class="label" for="f-salary-max">Max Salary</label>
+          <input id="f-salary-max" class="input" type="number" placeholder="0">
+        </div>
+        <div class="form-group" style="width:90px">
+          <label class="label" for="f-currency">Currency</label>
+          <select id="f-currency" class="select">
+            <option value="USD">USD</option>
+            <option value="PHP">PHP</option>
+            <option value="EUR">EUR</option>
+            <option value="GBP">GBP</option>
+            <option value="CAD">CAD</option>
+            <option value="AUD">AUD</option>
+            <option value="SGD">SGD</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group flex-1">
+          <label class="label" for="f-worktype">Work Type</label>
+          <select id="f-worktype" class="select">
+            <option value="remote">Remote</option>
+            <option value="hybrid">Hybrid</option>
+            <option value="onsite">Onsite</option>
+            <option value="unknown">Unknown</option>
+          </select>
+        </div>
+        <div class="form-group flex-1">
+          <label class="label" for="f-status">Status</label>
+          <select id="f-status" class="select">
+            <option value="applied">Applied</option>
+            <option value="interviewing">Interviewing</option>
+            <option value="offer">Offer</option>
+            <option value="rejected">Rejected</option>
+            <option value="withdrawn">Withdrawn</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="label" for="f-description">Description</label>
+        <textarea id="f-description" class="input textarea" rows="4" placeholder="Job description…"></textarea>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" id="btn-recapture" class="btn btn-ghost">↻ Re-capture</button>
+        <button type="submit" id="btn-save" class="btn btn-primary flex-1">
+          Save to JobZen
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ───── State: Saving ───── -->
+  <div id="state-saving" class="state hidden">
+    <div class="loader-container">
+      <div class="loader"></div>
+      <p class="msg">Saving to JobZen…</p>
+    </div>
+  </div>
+
+  <!-- ───── State: Success ───── -->
+  <div id="state-success" class="state hidden">
+    <div class="success-container">
+      <div class="success-icon">✓</div>
+      <h2 class="success-title">Job Saved!</h2>
+      <p class="msg">The job has been added to your tracker.</p>
+      <div class="success-actions">
+        <a id="link-dashboard" href="https://jobzenn.vercel.app/dashboard" target="_blank" class="btn btn-secondary btn-block">Open Dashboard</a>
+        <button id="btn-another" class="btn btn-ghost btn-block">Capture Another</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───── State: Error ───── -->
+  <div id="state-error" class="state hidden">
+    <div class="error-container">
+      <div class="error-icon">✕</div>
+      <h2 class="error-title">Something went wrong</h2>
+      <p id="error-msg" class="msg"></p>
+      <button id="btn-retry" class="btn btn-primary btn-block">Try Again</button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
