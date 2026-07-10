@@ -210,7 +210,7 @@ async def call_ollama_api(prompt: str, system_instruction: str = None) -> str:
         "temperature": 0.3
     }
     
-    async with httpx.AsyncClient(timeout=300.0) as client:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=2.0)) as client:
         try:
             response = await client.post(url, json=payload)
             response.raise_for_status()
@@ -219,6 +219,30 @@ async def call_ollama_api(prompt: str, system_instruction: str = None) -> str:
         except Exception as e:
             logger.error(f"Ollama API error: {e}")
             raise ValueError(f"Ollama API call failed: {str(e)}")
+
+
+def _should_try_ollama() -> bool:
+    """Never attempt Ollama on Vercel/production when URL points to host.docker.internal."""
+    if not settings.ollama_api_url:
+        return False
+    if settings.environment == "production" and "host.docker.internal" in settings.ollama_api_url:
+        return False
+    return True
+
+
+def _extract_json_object(text: str) -> dict:
+    """Cleanly extract and parse a JSON object from LLM markdown/text output."""
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\n", "", cleaned)
+        cleaned = re.sub(r"\n```$", "", cleaned)
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        match = re.search(r'\{.*\}', cleaned, re.DOTALL)
+        if match:
+            return json.loads(match.group(0))
+        raise
 
 
 async def scrape_job_url(url: str) -> dict:
@@ -291,11 +315,7 @@ Here is the text scraped from a job application URL:
                 system_instruction="You extract structured data from unstructured text. You always respond with raw JSON only.",
                 response_json=True
             )
-            content_text = content_text.strip()
-            if content_text.startswith("```"):
-                content_text = re.sub(r"^```(?:json)?\n", "", content_text)
-                content_text = re.sub(r"\n```$", "", content_text)
-            return json.loads(content_text)
+            return _extract_json_object(content_text)
         except Exception as e:
             logger.error(f"Failed parsing job description with Gemini: {e}")
 
@@ -309,26 +329,18 @@ Here is the text scraped from a job application URL:
                 system="You extract structured data from unstructured text. You always respond with raw JSON only.",
                 messages=[{"role": "user", "content": prompt}]
             )
-            content_text = message.content[0].text.strip()
-            if content_text.startswith("```"):
-                content_text = re.sub(r"^```(?:json)?\n", "", content_text)
-                content_text = re.sub(r"\n```$", "", content_text)
-            return json.loads(content_text)
+            return _extract_json_object(message.content[0].text)
         except Exception as e:
             logger.error(f"Failed parsing job description with Claude: {e}")
 
     # Use Ollama if available
-    if settings.ollama_api_url:
+    if _should_try_ollama():
         try:
             content_text = await call_ollama_api(
                 prompt=prompt,
                 system_instruction="You extract structured data from unstructured text. You always respond with raw JSON only."
             )
-            content_text = content_text.strip()
-            if content_text.startswith("```"):
-                content_text = re.sub(r"^```(?:json)?\n", "", content_text)
-                content_text = re.sub(r"\n```$", "", content_text)
-            return json.loads(content_text)
+            return _extract_json_object(content_text)
         except Exception as e:
             logger.error(f"Failed parsing job description with Ollama: {e}")
 
@@ -399,11 +411,7 @@ Return only the raw JSON object. No wrapper, no markdown block syntax."""
                 system_instruction="You evaluate job candidate matches. You always respond with raw JSON only.",
                 response_json=True
             )
-            content_text = content_text.strip()
-            if content_text.startswith("```"):
-                content_text = re.sub(r"^```(?:json)?\n", "", content_text)
-                content_text = re.sub(r"\n```$", "", content_text)
-            return _parse_structured(json.loads(content_text))
+            return _parse_structured(_extract_json_object(content_text))
         except Exception as e:
             logger.error(f"Failed calculating match score with Gemini: {e}")
 
@@ -417,26 +425,18 @@ Return only the raw JSON object. No wrapper, no markdown block syntax."""
                 system="You evaluate job candidate matches. You always respond with raw JSON only.",
                 messages=[{"role": "user", "content": prompt}]
             )
-            content_text = message.content[0].text.strip()
-            if content_text.startswith("```"):
-                content_text = re.sub(r"^```(?:json)?\n", "", content_text)
-                content_text = re.sub(r"\n```$", "", content_text)
-            return _parse_structured(json.loads(content_text))
+            return _parse_structured(_extract_json_object(message.content[0].text))
         except Exception as e:
             logger.error(f"Failed calculating match score with Claude: {e}")
 
     # Use Ollama as fallback
-    if settings.ollama_api_url:
+    if _should_try_ollama():
         try:
             content_text = await call_ollama_api(
                 prompt=prompt,
                 system_instruction="You evaluate job candidate matches. You always respond with raw JSON only."
             )
-            content_text = content_text.strip()
-            if content_text.startswith("```"):
-                content_text = re.sub(r"^```(?:json)?\n", "", content_text)
-                content_text = re.sub(r"\n```$", "", content_text)
-            return _parse_structured(json.loads(content_text))
+            return _parse_structured(_extract_json_object(content_text))
         except Exception as e:
             logger.error(f"Failed calculating match score with Ollama: {e}")
 
@@ -557,11 +557,7 @@ Return only the raw JSON. No wrapper, no markdown block syntax."""
                 system_instruction="You determine if job listings are still active. You always respond with raw JSON only.",
                 response_json=True
             )
-            content_text = content_text.strip()
-            if content_text.startswith("```"):
-                content_text = re.sub(r"^```(?:json)?\n", "", content_text)
-                content_text = re.sub(r"\n```$", "", content_text)
-            return json.loads(content_text)
+            return _extract_json_object(content_text)
         except Exception as e:
             logger.error(f"Failed checking job active status with Gemini: {e}")
 
@@ -575,26 +571,18 @@ Return only the raw JSON. No wrapper, no markdown block syntax."""
                 system="You determine if job listings are still active. You always respond with raw JSON only.",
                 messages=[{"role": "user", "content": prompt}]
             )
-            content_text = message.content[0].text.strip()
-            if content_text.startswith("```"):
-                content_text = re.sub(r"^```(?:json)?\n", "", content_text)
-                content_text = re.sub(r"\n```$", "", content_text)
-            return json.loads(content_text)
+            return _extract_json_object(message.content[0].text)
         except Exception as e:
             logger.error(f"Failed checking job active status with Claude: {e}")
 
     # Use Ollama if available
-    if settings.ollama_api_url:
+    if _should_try_ollama():
         try:
             content_text = await call_ollama_api(
                 prompt=prompt,
                 system_instruction="You determine if job listings are still active. You always respond with raw JSON only."
             )
-            content_text = content_text.strip()
-            if content_text.startswith("```"):
-                content_text = re.sub(r"^```(?:json)?\n", "", content_text)
-                content_text = re.sub(r"\n```$", "", content_text)
-            return json.loads(content_text)
+            return _extract_json_object(content_text)
         except Exception as e:
             logger.error(f"Failed checking job active status with Ollama: {e}")
 
