@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Briefcase, Settings, LogOut, Sun, Moon, X } from 'lucide-react'
+import { LayoutDashboard, Briefcase, Settings, LogOut, Sun, Moon, X, Zap } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { authApi } from '../api/client'
 import monogram from '../album/JZdark.png'
+import ExtensionModal from './ExtensionModal'
 
 const NAV = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -12,6 +14,7 @@ const NAV = [
 
 export default function Sidebar({ isOpen = false, onClose = () => {} }) {
   const { user, logout, updateUser } = useAuth()
+  const [showExtModal, setShowExtModal] = useState(false)
 
   const toggleTheme = async () => {
     const nextMode = !user?.dark_mode
@@ -92,6 +95,21 @@ export default function Sidebar({ isOpen = false, onClose = () => {} }) {
               <span className="truncate">{label}</span>
             </NavLink>
           ))}
+
+          <div className="pt-2">
+            <button
+              onClick={() => { setShowExtModal(true); onClose(); }}
+              className="group flex w-full items-center gap-3 rounded-2xl border border-dashed border-brand-500/40 bg-brand-50/50 px-3 py-2.5 text-xs font-medium text-brand-700 transition-all hover:bg-brand-100/50 dark:border-brand-500/40 dark:bg-brand-950/30 dark:text-brand-300 dark:hover:bg-brand-950/50"
+            >
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 dark:bg-brand-500/20 dark:text-brand-400">
+                <Zap size={15} className="fill-brand-500/20" />
+              </span>
+              <div className="flex flex-col text-left min-w-0">
+                <span className="truncate font-bold text-zinc-900 dark:text-zinc-100">Get Extension</span>
+                <span className="truncate text-[10px] text-zinc-500 dark:text-zinc-400">1-Click Job Capture</span>
+              </div>
+            </button>
+          </div>
         </nav>
 
         {/* Footer Area with Theme Toggle & User */}
@@ -135,6 +153,8 @@ export default function Sidebar({ isOpen = false, onClose = () => {} }) {
           </button>
         </div>
       </aside>
+
+      {showExtModal && <ExtensionModal onClose={() => setShowExtModal(false)} />}
     </>
   )
 }

@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from app.config import get_settings
-from app.api.routes import health, auth, jobs, users, cron
+from app.api.routes import health, auth, jobs, users, cron, extension
 from app.core.job_status import sweep_active_job_statuses
 
 settings = get_settings()
@@ -59,6 +59,7 @@ app.include_router(auth.router)
 app.include_router(jobs.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(cron.router, prefix="/api/v1")
+app.include_router(extension.router, prefix="/api/v1")
 
 
 @app.get("/")

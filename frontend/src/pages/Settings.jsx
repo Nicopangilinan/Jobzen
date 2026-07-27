@@ -94,12 +94,6 @@ export default function Settings() {
         />
       )}
 
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-zinc-400 dark:text-zinc-500">Preferences</p>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50 sm:text-3xl">Settings</h1>
-        <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">Manage your profile, resume, and AI matching preferences.</p>
-      </div>
-
       <div className={`flex items-start gap-3 rounded-3xl border p-4 transition-all sm:p-5 ${
         isAiReady
           ? 'border-emerald-500/20 bg-emerald-50/70 dark:bg-emerald-950/10'

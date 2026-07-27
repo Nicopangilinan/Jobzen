@@ -14,6 +14,7 @@ export default function Layout() {
   const pageMeta = useMemo(() => {
     if (location.pathname.startsWith('/jobs/')) {
       return {
+        category: 'Job Details',
         title: 'Application Detail',
         subtitle: 'Review notes, job match insights, and next actions.',
       }
@@ -21,21 +22,25 @@ export default function Layout() {
 
     const metaByPath = {
       '/dashboard': {
+        category: 'Overview',
         title: 'Dashboard',
         subtitle: 'Track progress, outcomes, and recent momentum.',
       },
       '/jobs': {
+        category: 'Pipeline',
         title: 'Applications',
         subtitle: 'Manage your pipeline in list or board view.',
       },
       '/settings': {
+        category: 'Preferences',
         title: 'Settings',
-        subtitle: 'Update your profile, resume, and notification preferences.',
+        subtitle: 'Manage your profile, resume, and AI matching options.',
       },
     }
 
     return metaByPath[location.pathname] ?? {
-      title: 'Jobzen',
+      category: 'JobZen',
+      title: 'JobZen',
       subtitle: 'Organize your search with clarity and momentum.',
     }
   }, [location.pathname])
@@ -49,7 +54,7 @@ export default function Layout() {
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-zinc-400 dark:text-zinc-500">
-                Jobzen
+                {pageMeta.category}
               </p>
               <h1 className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                 {pageMeta.title}
@@ -69,7 +74,7 @@ export default function Layout() {
         <div className="mx-auto flex min-h-full w-full max-w-7xl flex-col px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
           <div className="mb-6 hidden lg:block">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-zinc-400 dark:text-zinc-500">
-              Workspace
+              {pageMeta.category}
             </p>
             <div className="mt-1 flex items-end justify-between gap-4">
               <div>

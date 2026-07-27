@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import { X, Zap, Sparkles } from 'lucide-react'
 import { jobsApi } from '../api/client'
+import ExtensionModal from './ExtensionModal'
 
 const STATUSES = ['applied', 'interviewing', 'offer', 'rejected', 'withdrawn']
 const WORK_TYPES = ['remote', 'hybrid', 'onsite', 'unknown']
 
 export default function AddJobModal({ onClose, onCreated }) {
+  const [showExtModal, setShowExtModal] = useState(false)
   const [form, setForm] = useState({
     company_name: '', job_title: '', job_url: '', location: '',
     salary_min: '', salary_max: '', currency: 'USD',
@@ -82,6 +84,21 @@ export default function AddJobModal({ onClose, onCreated }) {
           <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
             <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
               <div className="space-y-4">
+                {/* Extension Banner */}
+                <div className="flex items-center justify-between gap-3 rounded-2xl border border-brand-500/20 bg-brand-50/50 p-3 dark:border-brand-500/30 dark:bg-brand-950/20">
+                  <div className="flex items-center gap-2 text-xs text-brand-900 dark:text-brand-200">
+                    <Zap size={15} className="shrink-0 text-brand-600 dark:text-brand-400 fill-brand-500/30" />
+                    <span><strong>1-Click Capture:</strong> Add jobs directly from LinkedIn & Indeed with our Chrome Extension.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowExtModal(true)}
+                    className="shrink-0 rounded-xl bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-700 active:scale-95"
+                  >
+                    Get Extension
+                  </button>
+                </div>
+
                 {error && (
                   <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/30 dark:bg-red-950/20 dark:text-red-400">{error}</div>
                 )}
@@ -181,6 +198,7 @@ export default function AddJobModal({ onClose, onCreated }) {
           </form>
         </div>
       </div>
+      {showExtModal && <ExtensionModal onClose={() => setShowExtModal(false)} />}
     </div>
   )
 }
