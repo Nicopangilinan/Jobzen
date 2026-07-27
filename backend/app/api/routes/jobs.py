@@ -5,7 +5,7 @@ from sqlalchemy.orm import selectinload
 from typing import Annotated
 from app.db.session import get_db
 from app.models.job import Job
-from app.schemas.job import JobCreate, JobUpdate, JobResponse, JobScrapeRequest
+from app.schemas.job import JobCreate, JobUpdate, JobResponse, JobScrapeRequest, JobStatusCheckRequest
 from app.api.deps import CurrentUser
 from app.core.services import scrape_job_url, calculate_match_score
 from app.core.job_status import refresh_job_listing_status
@@ -215,8 +215,9 @@ async def check_job_status(
     job_id: uuid.UUID,
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
+    payload: JobStatusCheckRequest | None = None,
 ):
-    """Verify if the job posting is still active by scraping its URL."""
+    """Verify if the job posting is still active (using optional client-supplied HTML or stealth fetch)."""
     result = await db.execute(
         select(Job).where(Job.id == job_id, Job.user_id == current_user.id)
     )
@@ -230,7 +231,8 @@ async def check_job_status(
             detail="Cannot verify status because this job has no posting URL."
         )
 
-    return await refresh_job_listing_status(db, job)
+    html_content = payload.html if payload else None
+    return await refresh_job_listing_status(db, job, html=html_content)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

@@ -6,6 +6,16 @@ import logging
 import json
 import re
 
+import logging
+import json
+import re
+
+try:
+    from curl_cffi.requests import AsyncSession as CurlAsyncSession
+    HAS_CURL_CFFI = True
+except ImportError:
+    HAS_CURL_CFFI = False
+
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
@@ -13,6 +23,37 @@ settings = get_settings()
 anthropic_client = None
 if settings.anthropic_api_key and settings.anthropic_api_key != "sk-ant-your-key-here":
     anthropic_client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+
+
+async def fetch_html_with_stealth(url: str, timeout: float = 15.0) -> tuple[str, int]:
+    """Fetch URL using Chrome TLS fingerprint impersonation (curl_cffi) to bypass 401/403 bot blocks."""
+    if HAS_CURL_CFFI:
+        try:
+            async with CurlAsyncSession(impersonate="chrome124") as s:
+                resp = await s.get(
+                    url,
+                    timeout=timeout,
+                    follow_redirects=True,
+                    headers={
+                        "Accept-Language": "en-US,en;q=0.9",
+                        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                    }
+                )
+                return resp.text, resp.status_code
+        except Exception as e:
+            logger.warning(f"curl_cffi fetch failed for {url}, falling back to httpx: {e}")
+
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+    }
+    async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+        response = await client.get(url, headers=headers)
+        return response.text, response.status_code
 
 
 def extract_metadata_from_html(html: str) -> dict:
@@ -511,27 +552,51 @@ Provide only the clean markdown summary. No wrappers, intro text, or code block 
     return _fallback_summary(resume_text)
 
 
-async def check_job_active(url: str) -> dict:
+async def check_job_active(url: str, html: str | None = None) -> dict:
     """Check if a job posting URL is still active or has been closed/removed."""
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
-        ),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-    }
-    
-    try:
-        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-            response = await client.get(url, headers=headers)
-            if response.status_code == 404:
+    # 1. Direct ATS API Check for Greenhouse / Lever (Instant, 100% reliable, zero bot blocks)
+    if "greenhouse.io" in url:
+        gh_match = re.search(r"greenhouse\.io/([^/]+)/jobs/(\d+)", url)
+        if gh_match:
+            board, job_id = gh_match.group(1), gh_match.group(2)
+            api_url = f"https://boards-api.greenhouse.io/v1/boards/{board}/jobs/{job_id}"
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    resp = await client.get(api_url)
+                    if resp.status_code == 404:
+                        return {"is_active": False, "reason": "Listing removed from Greenhouse (404)"}
+                    if resp.status_code == 200:
+                        return {"is_active": True, "reason": "Active on Greenhouse"}
+            except Exception as e:
+                logger.debug(f"Greenhouse API check error: {e}")
+
+    if "lever.co" in url:
+        lever_match = re.search(r"lever\.co/([^/]+)/([a-f0-9\-]+)", url)
+        if lever_match:
+            comp, job_id = lever_match.group(1), lever_match.group(2)
+            api_url = f"https://api.lever.co/v0/postings/{comp}/{job_id}"
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    resp = await client.get(api_url)
+                    if resp.status_code == 404:
+                        return {"is_active": False, "reason": "Listing removed from Lever (404)"}
+                    if resp.status_code == 200:
+                        return {"is_active": True, "reason": "Active on Lever"}
+            except Exception as e:
+                logger.debug(f"Lever API check error: {e}")
+
+    # 2. Fetch page HTML using Chrome TLS Impersonation (curl_cffi) to bypass 401/403 bot blocks
+    if not html:
+        try:
+            html_text, status_code = await fetch_html_with_stealth(url)
+            if status_code == 404:
                 return {"is_active": False, "reason": "Page not found (404)"}
-            response.raise_for_status()
-            html = response.text
-    except Exception as e:
-        logger.error(f"Failed to fetch job URL for active check {url}: {e}")
-        return {"is_active": False, "reason": f"Job posting page unreachable ({str(e) or type(e).__name__})"}
+            if status_code in (401, 403):
+                return {"is_active": False, "reason": f"Access restricted ({status_code})"}
+            html = html_text
+        except Exception as e:
+            logger.error(f"Failed to fetch job URL for active check {url}: {e}")
+            return {"is_active": False, "reason": f"Job posting page unreachable ({str(e) or type(e).__name__})"}
 
     soup = BeautifulSoup(html, "html.parser")
     for script_or_style in soup(["script", "style", "nav", "footer", "header", "noscript"]):

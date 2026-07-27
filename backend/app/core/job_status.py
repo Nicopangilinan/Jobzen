@@ -13,12 +13,12 @@ from app.models.job import Job, JobStatus
 logger = logging.getLogger(__name__)
 
 
-async def refresh_job_listing_status(db: AsyncSession, job: Job) -> dict[str, str | bool | None]:
+async def refresh_job_listing_status(db: AsyncSession, job: Job, html: str | None = None) -> dict[str, str | bool | None]:
     """Refresh and persist a single job listing status."""
     if not job.job_url:
         raise ValueError("Cannot verify status because this job has no posting URL.")
 
-    status_data = await check_job_active(job.job_url)
+    status_data = await check_job_active(job.job_url, html=html)
     job.is_active = status_data.get("is_active", True)
     job.last_checked_at = datetime.now(timezone.utc)
 

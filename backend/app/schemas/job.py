@@ -65,3 +65,7 @@ class JobResponse(BaseModel):
 class JobScrapeRequest(BaseModel):
     url: str
     html: str | None = None
+
+
+class JobStatusCheckRequest(BaseModel):
+    html: str | None = None
