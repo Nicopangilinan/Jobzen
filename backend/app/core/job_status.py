@@ -33,6 +33,7 @@ async def refresh_job_listing_status(db: AsyncSession, job: Job, html: str | Non
         "is_active": job.is_active,
         "reason": status_data.get("reason", "Unknown"),
         "status": status_value,
+        "engine": status_data.get("engine", "Unknown"),
         "last_checked_at": job.last_checked_at.isoformat() if job.last_checked_at else None,
     }
 

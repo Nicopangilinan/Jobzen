@@ -25,7 +25,7 @@ if settings.anthropic_api_key and settings.anthropic_api_key != "sk-ant-your-key
     anthropic_client = AsyncAnthropic(api_key=settings.anthropic_api_key)
 
 
-async def fetch_html_with_stealth(url: str, timeout: float = 15.0) -> tuple[str, int]:
+async def fetch_html_with_stealth(url: str, timeout: float = 15.0) -> tuple[str, int, str]:
     """Fetch URL using Chrome TLS fingerprint impersonation (curl_cffi) to bypass 401/403 bot blocks."""
     if HAS_CURL_CFFI:
         try:
@@ -35,13 +35,19 @@ async def fetch_html_with_stealth(url: str, timeout: float = 15.0) -> tuple[str,
                     timeout=timeout,
                     follow_redirects=True,
                     headers={
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
                         "Accept-Language": "en-US,en;q=0.9",
                         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
                     }
                 )
-                return resp.text, resp.status_code
+                logger.info(f"🟢 [curl_cffi] Fetched {url} - Status: {resp.status_code}")
+                return resp.text, resp.status_code, f"curl_cffi (chrome124, status {resp.status_code})"
         except Exception as e:
-            logger.warning(f"curl_cffi fetch failed for {url}, falling back to httpx: {e}")
+            logger.warning(f"🔴 [curl_cffi] Fetch failed for {url}: {e}. Falling back to httpx.")
+            engine_reason = f"httpx fallback (curl_cffi_error: {type(e).__name__})"
+    else:
+        logger.warning("⚠️ [curl_cffi] module is NOT installed in active python env! Falling back to httpx.")
+        engine_reason = "httpx fallback (curl_cffi_not_installed)"
 
     headers = {
         "User-Agent": (
@@ -53,7 +59,8 @@ async def fetch_html_with_stealth(url: str, timeout: float = 15.0) -> tuple[str,
     }
     async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
         response = await client.get(url, headers=headers)
-        return response.text, response.status_code
+        logger.info(f"🟡 [httpx fallback] Fetched {url} - Status: {response.status_code}")
+        return response.text, response.status_code, f"{engine_reason}, httpx_status: {response.status_code}"
 
 
 def extract_metadata_from_html(html: str) -> dict:
@@ -554,6 +561,8 @@ Provide only the clean markdown summary. No wrappers, intro text, or code block 
 
 async def check_job_active(url: str, html: str | None = None) -> dict:
     """Check if a job posting URL is still active or has been closed/removed."""
+    fetch_engine = "client_provided_html"
+
     # 1. Direct ATS API Check for Greenhouse / Lever (Instant, 100% reliable, zero bot blocks)
     if "greenhouse.io" in url:
         gh_match = re.search(r"greenhouse\.io/([^/]+)/jobs/(\d+)", url)
@@ -564,9 +573,9 @@ async def check_job_active(url: str, html: str | None = None) -> dict:
                 async with httpx.AsyncClient(timeout=10.0) as client:
                     resp = await client.get(api_url)
                     if resp.status_code == 404:
-                        return {"is_active": False, "reason": "Listing removed from Greenhouse (404)"}
+                        return {"is_active": False, "reason": "Listing removed from Greenhouse (404)", "engine": "greenhouse_api"}
                     if resp.status_code == 200:
-                        return {"is_active": True, "reason": "Active on Greenhouse"}
+                        return {"is_active": True, "reason": "Active on Greenhouse", "engine": "greenhouse_api"}
             except Exception as e:
                 logger.debug(f"Greenhouse API check error: {e}")
 
@@ -579,24 +588,24 @@ async def check_job_active(url: str, html: str | None = None) -> dict:
                 async with httpx.AsyncClient(timeout=10.0) as client:
                     resp = await client.get(api_url)
                     if resp.status_code == 404:
-                        return {"is_active": False, "reason": "Listing removed from Lever (404)"}
+                        return {"is_active": False, "reason": "Listing removed from Lever (404)", "engine": "lever_api"}
                     if resp.status_code == 200:
-                        return {"is_active": True, "reason": "Active on Lever"}
+                        return {"is_active": True, "reason": "Active on Lever", "engine": "lever_api"}
             except Exception as e:
                 logger.debug(f"Lever API check error: {e}")
 
     # 2. Fetch page HTML using Chrome TLS Impersonation (curl_cffi) to bypass 401/403 bot blocks
     if not html:
         try:
-            html_text, status_code = await fetch_html_with_stealth(url)
+            html_text, status_code, fetch_engine = await fetch_html_with_stealth(url)
             if status_code == 404:
-                return {"is_active": False, "reason": "Page not found (404)"}
+                return {"is_active": False, "reason": "Page not found (404)", "engine": fetch_engine}
             if status_code in (401, 403):
-                return {"is_active": False, "reason": f"Access restricted ({status_code})"}
+                return {"is_active": False, "reason": f"Access restricted ({status_code})", "engine": fetch_engine}
             html = html_text
         except Exception as e:
             logger.error(f"Failed to fetch job URL for active check {url}: {e}")
-            return {"is_active": False, "reason": f"Job posting page unreachable ({str(e) or type(e).__name__})"}
+            return {"is_active": False, "reason": f"Job posting page unreachable ({str(e) or type(e).__name__})", "engine": "error_fallback"}
 
     soup = BeautifulSoup(html, "html.parser")
     for script_or_style in soup(["script", "style", "nav", "footer", "header", "noscript"]):
@@ -620,6 +629,8 @@ Respond with a JSON object containing:
 
 Return only the raw JSON. No wrapper, no markdown block syntax."""
 
+    res_data = None
+
     # Use Gemini if available
     if settings.gemini_api_key and settings.gemini_api_key != "your-key" and "your-key" not in settings.gemini_api_key:
         try:
@@ -628,12 +639,12 @@ Return only the raw JSON. No wrapper, no markdown block syntax."""
                 system_instruction="You determine if job listings are still active. You always respond with raw JSON only.",
                 response_json=True
             )
-            return _extract_json_object(content_text)
+            res_data = _extract_json_object(content_text)
         except Exception as e:
             logger.error(f"Failed checking job active status with Gemini: {e}")
 
     # Use Claude if available
-    if anthropic_client:
+    if not res_data and anthropic_client:
         try:
             message = await anthropic_client.messages.create(
                 model="claude-3-haiku-20240307",
@@ -642,26 +653,30 @@ Return only the raw JSON. No wrapper, no markdown block syntax."""
                 system="You determine if job listings are still active. You always respond with raw JSON only.",
                 messages=[{"role": "user", "content": prompt}]
             )
-            return _extract_json_object(message.content[0].text)
+            res_data = _extract_json_object(message.content[0].text)
         except Exception as e:
             logger.error(f"Failed checking job active status with Claude: {e}")
 
     # Use Ollama if available
-    if _should_try_ollama():
+    if not res_data and _should_try_ollama():
         try:
             content_text = await call_ollama_api(
                 prompt=prompt,
                 system_instruction="You determine if job listings are still active. You always respond with raw JSON only."
             )
-            return _extract_json_object(content_text)
+            res_data = _extract_json_object(content_text)
         except Exception as e:
             logger.error(f"Failed checking job active status with Ollama: {e}")
 
-    # Simple heuristic fallback
-    lower_text = text.lower()
-    closed_keywords = ["no longer accepting applications", "job is closed", "expired", "filled", "listing has ended", "not active"]
-    for kw in closed_keywords:
-        if kw in lower_text:
-            return {"is_active": False, "reason": f"Closed ({kw})"}
+    if not res_data:
+        # Simple heuristic fallback
+        lower_text = text.lower()
+        closed_keywords = ["no longer accepting applications", "job is closed", "expired", "filled", "listing has ended", "not active"]
+        is_closed = any(kw in lower_text for kw in closed_keywords)
+        res_data = {
+            "is_active": not is_closed,
+            "reason": "Closed (keyword detected)" if is_closed else "Active",
+        }
 
-    return {"is_active": True, "reason": "Active"}
+    res_data["engine"] = fetch_engine
+    return res_data

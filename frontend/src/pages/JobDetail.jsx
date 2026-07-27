@@ -99,16 +99,19 @@ export default function JobDetail() {
     }
     try {
       const { data } = await jobsApi.checkStatus(jobId)
+      console.log('🔍 [JobZen Verify Status]', data)
       setUrlStatus(data)
       setJob(prev => prev ? { ...prev, is_active: data.is_active, status: data.status } : null)
       if (showFeedback) {
+        const engineLabel = data.engine ? ` (Engine: ${data.engine})` : ''
         if (data.is_active) {
-          showToast('success', 'Job posting is still active and open!')
+          showToast('success', `Job posting is active & open!${engineLabel}`, 6000)
         } else {
-          showToast('warning', `Job listing is inactive: ${data.reason}`)
+          showToast('warning', `Job listing inactive: ${data.reason}${engineLabel}`, 7000)
         }
       }
     } catch (err) {
+      console.error('🔴 [JobZen Verify Status Error]', err)
       if (showFeedback) {
         showToast('error', err.response?.data?.detail || 'Failed to verify posting status.')
       }
