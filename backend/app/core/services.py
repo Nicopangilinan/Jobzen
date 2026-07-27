@@ -27,6 +27,20 @@ if settings.anthropic_api_key and settings.anthropic_api_key != "sk-ant-your-key
 
 async def fetch_html_with_stealth(url: str, timeout: float = 15.0) -> tuple[str, int, str]:
     """Fetch URL using Chrome TLS fingerprint impersonation (curl_cffi) to bypass 401/403 bot blocks."""
+    chrome_headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Sec-Ch-Ua": '"Not/A)Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"',
+        "Sec-Ch-Ua-Mobile": "?0",
+        "Sec-Ch-Ua-Platform": '"Windows"',
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1",
+    }
+
     if HAS_CURL_CFFI:
         try:
             async with CurlAsyncSession(impersonate="chrome") as s:
@@ -34,11 +48,7 @@ async def fetch_html_with_stealth(url: str, timeout: float = 15.0) -> tuple[str,
                     url,
                     timeout=timeout,
                     allow_redirects=True,
-                    headers={
-                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-                        "Accept-Language": "en-US,en;q=0.9",
-                        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-                    }
+                    headers=chrome_headers
                 )
                 logger.info(f"🟢 [curl_cffi] Fetched {url} - Status: {resp.status_code}")
                 return resp.text, resp.status_code, f"curl_cffi (chrome, status {resp.status_code})"
@@ -49,16 +59,8 @@ async def fetch_html_with_stealth(url: str, timeout: float = 15.0) -> tuple[str,
         logger.warning("⚠️ [curl_cffi] module is NOT installed in active python env! Falling back to httpx.")
         engine_reason = "httpx fallback (curl_cffi_not_installed)"
 
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
-        ),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-    }
     async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-        response = await client.get(url, headers=headers)
+        response = await client.get(url, headers=chrome_headers)
         logger.info(f"🟡 [httpx fallback] Fetched {url} - Status: {response.status_code}")
         return response.text, response.status_code, f"{engine_reason}, httpx_status: {response.status_code}"
 
@@ -593,6 +595,28 @@ async def check_job_active(url: str, html: str | None = None) -> dict:
                         return {"is_active": True, "reason": "Active on Lever", "engine": "lever_api"}
             except Exception as e:
                 logger.debug(f"Lever API check error: {e}")
+
+    # Direct LinkedIn Guest API Shortcut (Public unauthenticated job posting view - zero authwalls)
+    if "linkedin.com" in url:
+        li_match = re.search(r"(\d{8,})", url)
+        if li_match:
+            job_id = li_match.group(1)
+            guest_url = f"https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{job_id}"
+            try:
+                html_text, status_code, fetch_engine = await fetch_html_with_stealth(guest_url)
+                if status_code == 404:
+                    return {"is_active": False, "reason": "Listing removed from LinkedIn (404)", "engine": f"linkedin_guest_api ({fetch_engine})"}
+                if status_code == 200:
+                    lower_html = html_text.lower()
+                    closed_phrases = ["no longer accepting applications", "job is closed", "this job is no longer available", "listing has ended"]
+                    is_closed = any(phrase in lower_html for phrase in closed_phrases)
+                    return {
+                        "is_active": not is_closed,
+                        "reason": "Job closed/expired on LinkedIn" if is_closed else "Active on LinkedIn",
+                        "engine": f"linkedin_guest_api ({fetch_engine})"
+                    }
+            except Exception as e:
+                logger.debug(f"LinkedIn Guest API check error: {e}")
 
     # 2. Fetch page HTML using Chrome TLS Impersonation (curl_cffi) to bypass 401/403 bot blocks
     if not html:
