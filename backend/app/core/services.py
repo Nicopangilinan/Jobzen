@@ -29,11 +29,11 @@ async def fetch_html_with_stealth(url: str, timeout: float = 15.0) -> tuple[str,
     """Fetch URL using Chrome TLS fingerprint impersonation (curl_cffi) to bypass 401/403 bot blocks."""
     if HAS_CURL_CFFI:
         try:
-            async with CurlAsyncSession(impersonate="chrome124") as s:
+            async with CurlAsyncSession(impersonate="chrome") as s:
                 resp = await s.get(
                     url,
                     timeout=timeout,
-                    follow_redirects=True,
+                    allow_redirects=True,
                     headers={
                         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
                         "Accept-Language": "en-US,en;q=0.9",
@@ -41,10 +41,10 @@ async def fetch_html_with_stealth(url: str, timeout: float = 15.0) -> tuple[str,
                     }
                 )
                 logger.info(f"🟢 [curl_cffi] Fetched {url} - Status: {resp.status_code}")
-                return resp.text, resp.status_code, f"curl_cffi (chrome124, status {resp.status_code})"
+                return resp.text, resp.status_code, f"curl_cffi (chrome, status {resp.status_code})"
         except Exception as e:
-            logger.warning(f"🔴 [curl_cffi] Fetch failed for {url}: {e}. Falling back to httpx.")
-            engine_reason = f"httpx fallback (curl_cffi_error: {type(e).__name__})"
+            logger.warning(f"🔴 [curl_cffi] Fetch failed for {url}: {e} ({type(e).__name__}). Falling back to httpx.")
+            engine_reason = f"httpx fallback (curl_cffi_error: {type(e).__name__}: {str(e)})"
     else:
         logger.warning("⚠️ [curl_cffi] module is NOT installed in active python env! Falling back to httpx.")
         engine_reason = "httpx fallback (curl_cffi_not_installed)"
