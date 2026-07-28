@@ -83,22 +83,16 @@ async def fetch_html_with_stealth(url: str, timeout: float = 25.0) -> tuple[str,
 
     if proxy_key:
         encoded_target = urllib.parse.quote(url, safe='')
-        # Use ScraperAPI render=true to execute JS & bypass Cloudflare challenges
-        proxy_endpoint = f"https://api.scraperapi.com?api_key={proxy_key}&url={encoded_target}&render=true"
+        proxy_endpoint = f"https://api.scraperapi.com?api_key={proxy_key}&url={encoded_target}"
         try:
             async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
                 response = await client.get(proxy_endpoint)
-                if response.status_code == 200:
-                    logger.info(f"🟢 [ScraperAPI] Fetched {url} via residential proxy - Status: 200")
-                    return response.text, 200, "scraper_api (residential_proxy, status 200)"
-                
-                # Fallback to standard ScraperAPI without JS render
-                fb_endpoint = f"https://api.scraperapi.com?api_key={proxy_key}&url={encoded_target}"
-                fb_resp = await client.get(fb_endpoint)
-                logger.info(f"🟡 [ScraperAPI standard] Fetched {url} - Status: {fb_resp.status_code}")
-                return fb_resp.text, fb_resp.status_code, f"scraper_api (status {fb_resp.status_code})"
+                logger.info(f"🟢 [ScraperAPI] Fetched {url} - Status: {response.status_code}")
+                # Return ScraperAPI's response directly
+                err_snippet = response.text[:120].strip().replace('\n', ' ') if response.status_code != 200 else ""
+                return response.text, response.status_code, f"scraper_api (status {response.status_code}{': ' + err_snippet if err_snippet else ''})"
         except Exception as e:
-            logger.warning(f"🔴 [ScraperAPI] Proxy fetch failed for {url}: {e}. Falling back to curl_cffi/httpx.")
+            logger.warning(f"🔴 [ScraperAPI] Proxy fetch exception for {url}: {e}. Falling back to curl_cffi.")
 
     chrome_headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
