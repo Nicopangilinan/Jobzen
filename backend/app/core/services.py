@@ -10,6 +10,8 @@ import logging
 import json
 import re
 
+import urllib.parse
+
 try:
     from curl_cffi.requests import AsyncSession as CurlAsyncSession
     HAS_CURL_CFFI = True
@@ -25,8 +27,19 @@ if settings.anthropic_api_key and settings.anthropic_api_key != "sk-ant-your-key
     anthropic_client = AsyncAnthropic(api_key=settings.anthropic_api_key)
 
 
-async def fetch_html_with_stealth(url: str, timeout: float = 15.0) -> tuple[str, int, str]:
-    """Fetch URL using Chrome TLS fingerprint impersonation (curl_cffi) to bypass 401/403 bot blocks."""
+async def fetch_html_with_stealth(url: str, timeout: float = 25.0) -> tuple[str, int, str]:
+    """Fetch URL using Scraping Proxy API (residential IP), Chrome TLS fingerprint (curl_cffi), or httpx."""
+    # 1. Scraping Proxy API (ScraperAPI / ZenRows) if API key is provided
+    if settings.scraper_api_key and settings.scraper_api_key.strip():
+        encoded_target = urllib.parse.quote(url, safe='')
+        proxy_endpoint = f"https://api.scraperapi.com?api_key={settings.scraper_api_key.strip()}&url={encoded_target}"
+        try:
+            async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+                response = await client.get(proxy_endpoint)
+                logger.info(f"🟢 [ScraperAPI] Fetched {url} via residential proxy - Status: {response.status_code}")
+                return response.text, response.status_code, f"scraper_api (residential_proxy, status {response.status_code})"
+        except Exception as e:
+            logger.warning(f"🔴 [ScraperAPI] Proxy fetch failed for {url}: {e}. Falling back to curl_cffi/httpx.")
     chrome_headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",

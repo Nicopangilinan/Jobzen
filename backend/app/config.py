@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     logodev_api_key: str = ""
     clearbit_api_key: str = ""
 
+    # Scraping Proxy API (ScraperAPI / ZenRows / ScrapeOps)
+    scraper_api_key: str = ""
+
     # Job status scheduler
     enable_in_process_scheduler: bool = False
     job_status_sweep_hour: int = 2
