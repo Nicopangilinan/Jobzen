@@ -84,7 +84,7 @@ async def fetch_html_with_stealth(url: str, timeout: float = 25.0) -> tuple[str,
         encoded_target = urllib.parse.quote(url, safe='')
         proxy_endpoint = f"https://api.scraperapi.com?api_key={proxy_key}&url={encoded_target}"
         try:
-            async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            async with httpx.AsyncClient(timeout=timeout, follow_redirects=True, verify=False) as client:
                 response = await client.get(proxy_endpoint)
                 logger.info(f"🟢 [ScraperAPI] Fetched {url} - Status: {response.status_code}")
                 err_snippet = response.text[:200].strip().replace('\n', ' ') if response.status_code != 200 else ""
@@ -111,7 +111,7 @@ async def fetch_html_with_stealth(url: str, timeout: float = 25.0) -> tuple[str,
     env_missing_hint = f" [SCRAPER_API_KEY missing from os.environ. Keys detected: {env_keys_found or 'None'}]"
 
     try:
-        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True, verify=False) as client:
             response = await client.get(url, headers=chrome_headers)
             logger.info(f"🟡 [httpx direct] Fetched {url} - Status: {response.status_code}")
             return response.text, response.status_code, f"httpx_direct (status {response.status_code}){env_missing_hint}"
