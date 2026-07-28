@@ -77,8 +77,7 @@ def _get_proxy_key_from_env_file() -> str:
 
 
 async def fetch_html_with_stealth(url: str, timeout: float = 25.0) -> tuple[str, int, str]:
-    """Fetch URL using Scraping Proxy API (residential IP), Chrome TLS fingerprint (curl_cffi), or httpx."""
-    # 1. Scraping Proxy API (ScraperAPI / ZenRows) if API key is provided
+    """Fetch URL using Scraping Proxy API (residential IP) or direct httpx."""
     proxy_key = _get_proxy_key_from_env_file()
 
     if proxy_key:
@@ -88,12 +87,12 @@ async def fetch_html_with_stealth(url: str, timeout: float = 25.0) -> tuple[str,
             async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
                 response = await client.get(proxy_endpoint)
                 logger.info(f"🟢 [ScraperAPI] Fetched {url} - Status: {response.status_code}")
-                # Return ScraperAPI's response directly
-                err_snippet = response.text[:120].strip().replace('\n', ' ') if response.status_code != 200 else ""
+                err_snippet = response.text[:200].strip().replace('\n', ' ') if response.status_code != 200 else ""
                 return response.text, response.status_code, f"scraper_api (status {response.status_code}{': ' + err_snippet if err_snippet else ''})"
         except Exception as e:
-            logger.warning(f"🔴 [ScraperAPI] Proxy fetch exception for {url}: {e}. Falling back to curl_cffi.")
+            return "", 500, f"scraper_api_exception ({type(e).__name__}: {str(e)})"
 
+    # Direct httpx fallback if SCRAPER_API_KEY is not configured
     chrome_headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
@@ -109,30 +108,15 @@ async def fetch_html_with_stealth(url: str, timeout: float = 25.0) -> tuple[str,
     }
 
     env_keys_found = [k for k in os.environ.keys() if 'SCRAP' in k.upper() or 'KEY' in k.upper() or 'API' in k.upper()]
-    env_missing_hint = f" [SCRAPER_API_KEY missing from os.environ. System keys detected: {env_keys_found or 'None'}]"
+    env_missing_hint = f" [SCRAPER_API_KEY missing from os.environ. Keys detected: {env_keys_found or 'None'}]"
 
-    if HAS_CURL_CFFI:
-        try:
-            async with CurlAsyncSession(impersonate="chrome") as s:
-                resp = await s.get(
-                    url,
-                    timeout=timeout,
-                    allow_redirects=True,
-                    headers=chrome_headers
-                )
-                logger.info(f"🟢 [curl_cffi] Fetched {url} - Status: {resp.status_code}")
-                return resp.text, resp.status_code, f"curl_cffi (chrome, status {resp.status_code}){env_missing_hint if not proxy_key else ''}"
-        except Exception as e:
-            logger.warning(f"🔴 [curl_cffi] Fetch failed for {url}: {e} ({type(e).__name__}). Falling back to httpx.")
-            engine_reason = f"httpx fallback (curl_cffi_error: {type(e).__name__}: {str(e)})"
-    else:
-        logger.warning("⚠️ [curl_cffi] module is NOT installed in active python env! Falling back to httpx.")
-        engine_reason = "httpx fallback (curl_cffi_not_installed)"
-
-    async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-        response = await client.get(url, headers=chrome_headers)
-        logger.info(f"🟡 [httpx fallback] Fetched {url} - Status: {response.status_code}")
-        return response.text, response.status_code, f"{engine_reason}, httpx_status: {response.status_code}{env_missing_hint if not proxy_key else ''}"
+    try:
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            response = await client.get(url, headers=chrome_headers)
+            logger.info(f"🟡 [httpx direct] Fetched {url} - Status: {response.status_code}")
+            return response.text, response.status_code, f"httpx_direct (status {response.status_code}){env_missing_hint}"
+    except Exception as e:
+        return "", 500, f"httpx_exception ({type(e).__name__}: {str(e)}){env_missing_hint}"
 
 
 def extract_metadata_from_html(html: str) -> dict:
