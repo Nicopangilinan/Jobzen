@@ -15,7 +15,7 @@ export default function Layout() {
     if (location.pathname.startsWith('/jobs/')) {
       return {
         category: 'Job Details',
-        title: 'Application Detail',
+        title: 'Application Detailaaaaaaaaaa',
         subtitle: 'Review notes, job match insights, and next actions.',
       }
     }
