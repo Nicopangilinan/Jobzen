@@ -1,3 +1,4 @@
+import os
 import httpx
 from bs4 import BeautifulSoup
 from anthropic import AsyncAnthropic
@@ -27,27 +28,75 @@ if settings.anthropic_api_key and settings.anthropic_api_key != "sk-ant-your-key
     anthropic_client = AsyncAnthropic(api_key=settings.anthropic_api_key)
 
 
-import os
+def _get_proxy_key_from_env_file() -> str:
+    # 1. Direct case-insensitive scan of system environment variables (for Vercel serverless)
+    for k, v in os.environ.items():
+        if k.upper().strip() in ("SCRAPER_API_KEY", "SCRAPERAPI_KEY", "SCRAPER_KEY", "SCRAPERAPI_API_KEY"):
+            val = str(v or "").strip().strip('"').strip("'")
+            if val:
+                return val
+
+    # 2. Check Pydantic settings object
+    try:
+        s_key = getattr(get_settings(), "scraper_api_key", "")
+        if s_key and s_key.strip():
+            return s_key.strip()
+    except Exception:
+        pass
+
+    # 3. Determine absolute path to backend/.env relative to services.py location (for local dev)
+    services_dir = os.path.dirname(os.path.abspath(__file__)) # .../backend/app/core
+    backend_dir = os.path.dirname(os.path.dirname(services_dir)) # .../backend
+    root_dir = os.path.dirname(backend_dir)
+
+    candidates = [
+        os.path.join(backend_dir, ".env"),
+        os.path.join(root_dir, ".env"),
+        ".env",
+        "backend/.env",
+        "../.env",
+    ]
+
+    for candidate in candidates:
+        try:
+            if os.path.exists(candidate):
+                with open(candidate, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith("#") or "=" not in line:
+                            continue
+                        k, v = line.split("=", 1)
+                        if k.strip().upper() in ("SCRAPER_API_KEY", "SCRAPERAPI_KEY", "SCRAPER_KEY", "SCRAPERAPI_API_KEY"):
+                            cleaned_val = v.strip().strip('"').strip("'")
+                            if cleaned_val:
+                                return cleaned_val
+        except Exception:
+            pass
+
+    return ""
+
 
 async def fetch_html_with_stealth(url: str, timeout: float = 25.0) -> tuple[str, int, str]:
     """Fetch URL using Scraping Proxy API (residential IP), Chrome TLS fingerprint (curl_cffi), or httpx."""
     # 1. Scraping Proxy API (ScraperAPI / ZenRows) if API key is provided
-    proxy_key = (
-        getattr(settings, "scraper_api_key", None)
-        or os.getenv("SCRAPER_API_KEY")
-        or os.getenv("SCRAPERAPI_KEY")
-        or os.getenv("SCRAPER_KEY")
-        or os.getenv("SCRAPERAPI_API_KEY")
-    )
+    proxy_key = _get_proxy_key_from_env_file()
 
-    if proxy_key and proxy_key.strip():
+    if proxy_key:
         encoded_target = urllib.parse.quote(url, safe='')
-        proxy_endpoint = f"https://api.scraperapi.com?api_key={proxy_key.strip()}&url={encoded_target}"
+        # Use ScraperAPI render=true to execute JS & bypass Cloudflare challenges
+        proxy_endpoint = f"https://api.scraperapi.com?api_key={proxy_key}&url={encoded_target}&render=true"
         try:
             async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
                 response = await client.get(proxy_endpoint)
-                logger.info(f"🟢 [ScraperAPI] Fetched {url} via residential proxy - Status: {response.status_code}")
-                return response.text, response.status_code, f"scraper_api (residential_proxy, status {response.status_code})"
+                if response.status_code == 200:
+                    logger.info(f"🟢 [ScraperAPI] Fetched {url} via residential proxy - Status: 200")
+                    return response.text, 200, "scraper_api (residential_proxy, status 200)"
+                
+                # Fallback to standard ScraperAPI without JS render
+                fb_endpoint = f"https://api.scraperapi.com?api_key={proxy_key}&url={encoded_target}"
+                fb_resp = await client.get(fb_endpoint)
+                logger.info(f"🟡 [ScraperAPI standard] Fetched {url} - Status: {fb_resp.status_code}")
+                return fb_resp.text, fb_resp.status_code, f"scraper_api (status {fb_resp.status_code})"
         except Exception as e:
             logger.warning(f"🔴 [ScraperAPI] Proxy fetch failed for {url}: {e}. Falling back to curl_cffi/httpx.")
 
@@ -65,7 +114,8 @@ async def fetch_html_with_stealth(url: str, timeout: float = 25.0) -> tuple[str,
         "Upgrade-Insecure-Requests": "1",
     }
 
-    env_missing_hint = " [SCRAPER_API_KEY env var not found - redeploy Vercel build after adding env var]"
+    env_keys_found = [k for k in os.environ.keys() if 'SCRAP' in k.upper() or 'KEY' in k.upper() or 'API' in k.upper()]
+    env_missing_hint = f" [SCRAPER_API_KEY missing from os.environ. System keys detected: {env_keys_found or 'None'}]"
 
     if HAS_CURL_CFFI:
         try:
@@ -77,7 +127,7 @@ async def fetch_html_with_stealth(url: str, timeout: float = 25.0) -> tuple[str,
                     headers=chrome_headers
                 )
                 logger.info(f"🟢 [curl_cffi] Fetched {url} - Status: {resp.status_code}")
-                return resp.text, resp.status_code, f"curl_cffi (chrome, status {resp.status_code}){env_missing_hint}"
+                return resp.text, resp.status_code, f"curl_cffi (chrome, status {resp.status_code}){env_missing_hint if not proxy_key else ''}"
         except Exception as e:
             logger.warning(f"🔴 [curl_cffi] Fetch failed for {url}: {e} ({type(e).__name__}). Falling back to httpx.")
             engine_reason = f"httpx fallback (curl_cffi_error: {type(e).__name__}: {str(e)})"
@@ -88,7 +138,7 @@ async def fetch_html_with_stealth(url: str, timeout: float = 25.0) -> tuple[str,
     async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
         response = await client.get(url, headers=chrome_headers)
         logger.info(f"🟡 [httpx fallback] Fetched {url} - Status: {response.status_code}")
-        return response.text, response.status_code, f"{engine_reason}, httpx_status: {response.status_code}{env_missing_hint}"
+        return response.text, response.status_code, f"{engine_reason}, httpx_status: {response.status_code}{env_missing_hint if not proxy_key else ''}"
 
 
 def extract_metadata_from_html(html: str) -> dict:
@@ -135,34 +185,15 @@ def extract_metadata_from_html(html: str) -> dict:
                         if isinstance(loc, dict):
                             address = loc.get("address")
                             if isinstance(address, dict):
-                                parts = []
-                                for k in ["addressLocality", "addressRegion", "addressCountry"]:
-                                    val = address.get(k)
-                                    if val:
-                                        parts.append(val)
-                                data["location"] = ", ".join(parts)
+                                loc_parts = [address.get("addressLocality"), address.get("addressRegion"), address.get("addressCountry")]
+                                data["location"] = ", ".join([p for p in loc_parts if p])
                             elif isinstance(address, str):
                                 data["location"] = address
-                            elif loc.get("name"):
-                                data["location"] = loc["name"]
-                                
-                        desc = item.get("description")
-                        if desc:
-                            desc_soup = BeautifulSoup(desc, "html.parser")
+                        
+                        if item.get("description"):
+                            # Clean HTML tags from description
+                            desc_soup = BeautifulSoup(item["description"], "html.parser")
                             data["job_description"] = desc_soup.get_text(separator="\n").strip()
-                            
-                        salary = item.get("baseSalary")
-                        if isinstance(salary, dict):
-                            val = salary.get("value")
-                            if isinstance(val, dict):
-                                data["salary_min"] = val.get("minValue") or val.get("value")
-                                data["salary_max"] = val.get("maxValue") or val.get("value")
-                                if isinstance(data["salary_min"], (int, float)):
-                                    data["salary_min"] = int(data["salary_min"])
-                                if isinstance(data["salary_max"], (int, float)):
-                                    data["salary_max"] = int(data["salary_max"])
-                            data["currency"] = salary.get("currency") or "USD"
-                            
                         empt = item.get("employmentType")
                         if empt:
                             empt_str = str(empt).lower()

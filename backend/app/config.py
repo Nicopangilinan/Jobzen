@@ -51,7 +51,11 @@ class Settings(BaseSettings):
     # Cron security (for Vercel Cron / external schedulers calling an endpoint)
     cron_secret: str = ""
 
-    model_config = {"env_file": ".env", "case_sensitive": False}
+    model_config = {
+        "env_file": (".env", "backend/.env", "../.env", "../../.env"),
+        "case_sensitive": False,
+        "extra": "ignore"
+    }
 
 
 @lru_cache
