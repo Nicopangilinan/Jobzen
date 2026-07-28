@@ -27,12 +27,22 @@ if settings.anthropic_api_key and settings.anthropic_api_key != "sk-ant-your-key
     anthropic_client = AsyncAnthropic(api_key=settings.anthropic_api_key)
 
 
+import os
+
 async def fetch_html_with_stealth(url: str, timeout: float = 25.0) -> tuple[str, int, str]:
     """Fetch URL using Scraping Proxy API (residential IP), Chrome TLS fingerprint (curl_cffi), or httpx."""
     # 1. Scraping Proxy API (ScraperAPI / ZenRows) if API key is provided
-    if settings.scraper_api_key and settings.scraper_api_key.strip():
+    proxy_key = (
+        getattr(settings, "scraper_api_key", None)
+        or os.getenv("SCRAPER_API_KEY")
+        or os.getenv("SCRAPERAPI_KEY")
+        or os.getenv("SCRAPER_KEY")
+        or os.getenv("SCRAPERAPI_API_KEY")
+    )
+
+    if proxy_key and proxy_key.strip():
         encoded_target = urllib.parse.quote(url, safe='')
-        proxy_endpoint = f"https://api.scraperapi.com?api_key={settings.scraper_api_key.strip()}&url={encoded_target}"
+        proxy_endpoint = f"https://api.scraperapi.com?api_key={proxy_key.strip()}&url={encoded_target}"
         try:
             async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
                 response = await client.get(proxy_endpoint)
@@ -40,6 +50,7 @@ async def fetch_html_with_stealth(url: str, timeout: float = 25.0) -> tuple[str,
                 return response.text, response.status_code, f"scraper_api (residential_proxy, status {response.status_code})"
         except Exception as e:
             logger.warning(f"🔴 [ScraperAPI] Proxy fetch failed for {url}: {e}. Falling back to curl_cffi/httpx.")
+
     chrome_headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
@@ -54,6 +65,8 @@ async def fetch_html_with_stealth(url: str, timeout: float = 25.0) -> tuple[str,
         "Upgrade-Insecure-Requests": "1",
     }
 
+    env_missing_hint = " [SCRAPER_API_KEY env var not found - redeploy Vercel build after adding env var]"
+
     if HAS_CURL_CFFI:
         try:
             async with CurlAsyncSession(impersonate="chrome") as s:
@@ -64,7 +77,7 @@ async def fetch_html_with_stealth(url: str, timeout: float = 25.0) -> tuple[str,
                     headers=chrome_headers
                 )
                 logger.info(f"🟢 [curl_cffi] Fetched {url} - Status: {resp.status_code}")
-                return resp.text, resp.status_code, f"curl_cffi (chrome, status {resp.status_code})"
+                return resp.text, resp.status_code, f"curl_cffi (chrome, status {resp.status_code}){env_missing_hint}"
         except Exception as e:
             logger.warning(f"🔴 [curl_cffi] Fetch failed for {url}: {e} ({type(e).__name__}). Falling back to httpx.")
             engine_reason = f"httpx fallback (curl_cffi_error: {type(e).__name__}: {str(e)})"
@@ -75,7 +88,7 @@ async def fetch_html_with_stealth(url: str, timeout: float = 25.0) -> tuple[str,
     async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
         response = await client.get(url, headers=chrome_headers)
         logger.info(f"🟡 [httpx fallback] Fetched {url} - Status: {response.status_code}")
-        return response.text, response.status_code, f"{engine_reason}, httpx_status: {response.status_code}"
+        return response.text, response.status_code, f"{engine_reason}, httpx_status: {response.status_code}{env_missing_hint}"
 
 
 def extract_metadata_from_html(html: str) -> dict:
