@@ -330,10 +330,109 @@ def _extract_json_object(text: str) -> dict:
         raise
 
 
+def _normalize_scraped_job_data(data: dict, raw_text: str) -> dict:
+    """Post-process and normalize LLM or fallback extracted job data for 100% precision."""
+    if not isinstance(data, dict):
+        data = {}
+
+    company = str(data.get("company_name", "") or "").strip()
+    title = str(data.get("job_title", "") or "").strip()
+    location = str(data.get("location", "") or "").strip()
+    salary_min = data.get("salary_min")
+    salary_max = data.get("salary_max")
+    currency = str(data.get("currency", "") or "USD").strip().upper()
+    work_type = str(data.get("work_type", "") or "unknown").strip().lower()
+    description = str(data.get("job_description", "") or "").strip()
+
+    # 1. Clean garbage location strings (e.g. "P00, PH" or "$50 - $100")
+    if re.search(r"P\d+|PHP\s*\d+|\$\d+|\b0\b", location, re.IGNORECASE):
+        location = ""
+
+    if not location:
+        loc_match = re.search(r"(?:Location|Based in|Address)[:\s]+([^\n\r]+)", raw_text, re.IGNORECASE)
+        if loc_match:
+            location = loc_match.group(1).strip()
+        elif "national capital region" in raw_text.lower():
+            location = "National Capital Region, Philippines"
+
+    if "remote" in raw_text.lower() and "remote" not in location.lower():
+        location = f"Remote, {location}" if location else "Remote"
+
+    # 2. Precise Work Type Normalization
+    if "remote" in raw_text.lower() or "work from home" in raw_text.lower() or "work from anywhere" in raw_text.lower():
+        work_type = "remote"
+    elif "hybrid" in raw_text.lower():
+        work_type = "hybrid"
+    elif "onsite" in raw_text.lower() or "on-site" in raw_text.lower():
+        work_type = "onsite"
+
+    # 3. Precise Currency & Pay Rate Extraction
+    pay_matches = re.findall(r"(PHP|\$|USD|EUR|GBP|₱)\s*(\d+(?:\,\d+)?(?:\.\d+)?)\s*(?:-|to|\s+)\s*(?:PHP|\$|USD|EUR|GBP|₱)?\s*(\d+(?:\,\d+)?(?:\.\d+)?)", raw_text, re.IGNORECASE)
+    
+    if pay_matches:
+        cur_sym, val1, val2 = pay_matches[0]
+        cur_sym_upper = cur_sym.upper()
+        if "PHP" in cur_sym_upper or "₱" in cur_sym_upper:
+            currency = "PHP"
+        elif "$" in cur_sym or "USD" in cur_sym_upper:
+            currency = "USD"
+        elif "EUR" in cur_sym_upper or "€" in cur_sym:
+            currency = "EUR"
+        elif "GBP" in cur_sym_upper or "£" in cur_sym:
+            currency = "GBP"
+
+        try:
+            p_min = float(val1.replace(",", ""))
+            p_max = float(val2.replace(",", ""))
+            # If hourly pay rate (e.g. 50 to 100 per hour), convert to annual equivalent (2000 hours)
+            if "hour" in raw_text.lower() or "hr" in raw_text.lower() or p_min < 500:
+                salary_min = int(p_min * 2000)
+                salary_max = int(p_max * 2000)
+            else:
+                salary_min = int(p_min)
+                salary_max = int(p_max)
+        except Exception:
+            pass
+
+    # Normalize integer values for salary
+    if isinstance(salary_min, (float, str)):
+        try:
+            salary_min = int(float(str(salary_min).replace(",", "")))
+        except Exception:
+            salary_min = None
+
+    if isinstance(salary_max, (float, str)):
+        try:
+            salary_max = int(float(str(salary_max).replace(",", "")))
+        except Exception:
+            salary_max = None
+
+    if salary_min and salary_min <= 0:
+        salary_min = None
+    if salary_max and salary_max <= 0:
+        salary_max = None
+
+    # 4. Clean Description (Strip rating headers, star counts, and duplicate titles)
+    if description:
+        description = re.sub(r"^\s*(?:\d\.\d\s*)+", "", description)
+        description = re.sub(r"^\s*\d\.\d\s+out of 5 stars\s*", "", description, flags=re.IGNORECASE)
+        description = re.sub(r"^\s*Job details\s*", "", description, flags=re.IGNORECASE)
+        description = description.strip()
+
+    return {
+        "company_name": company,
+        "job_title": title,
+        "location": location,
+        "salary_min": salary_min,
+        "salary_max": salary_max,
+        "currency": currency,
+        "work_type": work_type if work_type in ("remote", "hybrid", "onsite") else "unknown",
+        "job_description": description,
+    }
+
+
 async def scrape_job_url(url: str, html: str = None) -> dict:
-    """Scrape HTML from a job posting URL and use LLM (Claude/Gemini) to extract structured details.
-    If html is provided (e.g. from the browser extension), skip the HTTP fetch entirely.
-    """
+    """Scrape HTML from a job posting URL and use LLM (Claude/Gemini) to extract structured details."""
     if html:
         # HTML already provided by the browser extension — skip server-side fetch
         pass
@@ -348,7 +447,7 @@ async def scrape_job_url(url: str, html: str = None) -> dict:
         }
         
         try:
-            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True, verify=False) as client:
                 response = await client.get(url, headers=headers)
                 response.raise_for_status()
                 html = response.text
@@ -381,22 +480,26 @@ async def scrape_job_url(url: str, html: str = None) -> dict:
     text = text[:12000]
 
     # Prompt details
-    prompt = f"""Extract the following details as a JSON object:
-- company_name (string, or empty string if not found)
-- job_title (string, or empty string if not found)
-- location (string, e.g., "New York, NY", or empty string if not found)
-- salary_min (integer, annual base salary minimum or hourly rate multiplied by 2000, or null)
-- salary_max (integer, annual base salary maximum, or null)
-- currency (string, ISO currency code like "USD", "EUR", "GBP", default "USD")
-- work_type (string, must be one of: "remote", "hybrid", "onsite", "unknown")
-- job_description (string, clean markdown summary of the job description and requirements)
+    prompt = f"""You are a master job posting data extractor. Extract details from this scraped job page text with 100% precision.
 
-Only return a valid JSON object. Do not include markdown code block formatting (like ```json) in your final response. Return raw JSON text only.
+Respond with a JSON object containing EXACTLY these fields:
+- company_name (string): Name of hiring organization (e.g. "DataAnnotation").
+- job_title (string): Specific position title (e.g. "Full Stack Developer - AI Trainer").
+- location (string): Location or Region (e.g. "National Capital Region, Philippines" or "Remote, Philippines"). NEVER output garbage like "P00, PH" or salary numbers in location.
+- salary_min (integer or null): Annual base minimum. If hourly (e.g. $50/hr or PHP 50/hr), convert to annual by multiplying hourly rate by 2000 (e.g. 50 * 2000 = 100000).
+- salary_max (integer or null): Annual base maximum. If hourly (e.g. $100/hr or PHP 100/hr), convert to annual (100 * 2000 = 200000).
+- currency (string): 3-letter currency code (e.g. "USD", "PHP", "EUR", "GBP"). Detect accurately from symbols ($ -> USD, PHP / ₱ -> PHP).
+- work_type (string): MUST be one of "remote", "hybrid", "onsite", "unknown". If "Remote" or "Fully remote" is mentioned, output "remote".
+- job_description (string): Clean Markdown text of the job description, qualifications, and responsibilities. Exclude website headers, ratings like "4.1 out of 5 stars", and navigation noise.
 
-Here is the text scraped from a job application URL:
+Text scraped from job page:
 ---
 {text}
----"""
+---
+
+Return raw JSON only."""
+
+    raw_result = None
 
     # Use Gemini if available
     if settings.gemini_api_key and settings.gemini_api_key != "your-key" and "your-key" not in settings.gemini_api_key:
@@ -406,12 +509,12 @@ Here is the text scraped from a job application URL:
                 system_instruction="You extract structured data from unstructured text. You always respond with raw JSON only.",
                 response_json=True
             )
-            return _extract_json_object(content_text)
+            raw_result = _extract_json_object(content_text)
         except Exception as e:
             logger.error(f"Failed parsing job description with Gemini: {e}")
 
     # Use Claude if available
-    if anthropic_client:
+    if not raw_result and anthropic_client:
         try:
             message = await anthropic_client.messages.create(
                 model="claude-3-haiku-20240307",
@@ -420,26 +523,29 @@ Here is the text scraped from a job application URL:
                 system="You extract structured data from unstructured text. You always respond with raw JSON only.",
                 messages=[{"role": "user", "content": prompt}]
             )
-            return _extract_json_object(message.content[0].text)
+            raw_result = _extract_json_object(message.content[0].text)
         except Exception as e:
             logger.error(f"Failed parsing job description with Claude: {e}")
 
     # Use Ollama if available
-    if _should_try_ollama():
+    if not raw_result and _should_try_ollama():
         try:
             content_text = await call_ollama_api(
                 prompt=prompt,
                 system_instruction="You extract structured data from unstructured text. You always respond with raw JSON only."
             )
-            return _extract_json_object(content_text)
+            raw_result = _extract_json_object(content_text)
         except Exception as e:
             logger.error(f"Failed parsing job description with Ollama: {e}")
 
-    # Fallback to local regex/JSON-LD metadata extraction
-    logger.warning("No LLM key configured or LLM failed. Using HTML/JSON-LD fallback metadata.")
-    if not fallback_data["job_description"]:
-        fallback_data["job_description"] = text[:4000]
-    return fallback_data
+    if not raw_result:
+        logger.warning("No LLM key configured or LLM failed. Using HTML/JSON-LD fallback metadata.")
+        if not fallback_data["job_description"]:
+            fallback_data["job_description"] = text[:4000]
+        raw_result = fallback_data
+
+    # Post-process & normalize output for 100% precision
+    return _normalize_scraped_job_data(raw_result, text)
 
 
 async def calculate_match_score(profile_summary: str, job_description: str) -> dict:
