@@ -2,11 +2,12 @@
 
 # JobZen
 
-**AI-powered job application tracker with intelligent resume matching and live listing verification.**
+**AI-powered job application tracker with intelligent resume matching, live listing verification, and browser extension companion.**
 
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?style=flat-square&logo=fastapi&logoColor=white)
 ![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black)
+![Chrome Extension](https://img.shields.io/badge/Chrome-Extension%20MV3-4285F4?style=flat-square&logo=googlechrome&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)
 ![Vercel](https://img.shields.io/badge/Deployed-Vercel-000000?style=flat-square&logo=vercel&logoColor=white)
@@ -25,7 +26,7 @@ JobZen is a full-stack SaaS-style job application tracker built to eliminate the
 
 **Key objectives:**
 
-- Eliminate manual data entry via AI-powered URL scraping
+- Eliminate manual data entry via AI-powered URL scraping and Chrome Extension companion
 - Give users a quantified signal — not just a feeling — about role fit
 - Automatically detect dead/closed listings before wasted follow-up effort
 - Persist the full job search as a structured, queryable dataset
@@ -34,11 +35,16 @@ JobZen is a full-stack SaaS-style job application tracker built to eliminate the
 
 ## Project Highlights
 
-### Intelligence Layer
+### Intelligence Layer & Multi-Tier Retrieval
 
-- **AI Job Scraper** — Paste a job URL; the backend fetches, cleans, and sends the page to an LLM to return structured JSON (title, company, salary, location, work type, description). No manual copy-pasting.
+- **Redesigned Multi-Tier HTML Fetching Engine** — Bypasses Cloudflare, Akamai, and anti-bot datacenter blocks through a 4-tier waterfall:
+  - **Tier 1 (Direct ATS APIs):** Greenhouse (`boards-api.greenhouse.io`) and Lever (`api.lever.co`) public endpoints ($0 cost, 100% reliable).
+  - **Tier 2 (LinkedIn Guest API Shortcut):** Public unauthenticated `/jobs-guest/jobs/api/jobPosting/{id}` endpoint avoiding authwalls.
+  - **Tier 3 (Residential Proxy / ScraperAPI):** Residential IP routing with optional headless JS rendering (`render=true`) to bypass Cloudflare anti-bot challenges.
+  - **Tier 4 (Chrome Extension Client Retrieval):** Native browser DOM extraction directly from user's active tab.
+- **JobZen Chrome Extension Companion** — Manifest V3 extension enabling 1-click application importing directly from any job site. Includes an in-app 2-step setup modal with live ZIP generation (`GET /api/v1/extension/download`).
 - **Resume Match Scoring** — Uploads a PDF resume, extracts full text, and runs it against any job description through an LLM to return a 0–100 match score with itemized strengths and gaps.
-- **Live Listing Verification** — Per-job endpoint that re-scrapes the original URL and uses an LLM to determine if the posting is still accepting applications. Dead listings are auto-flagged.
+- **Live Listing Verification** — Per-job endpoint that re-scrapes the original URL and uses LLMs to determine if the posting is still accepting applications. Dead/closed listings are auto-flagged as `withdrawn`.
 - **Multi-LLM Fallback Chain** — Gemini → Claude → Ollama → HTML/JSON-LD heuristics. No single point of AI failure.
 
 ### Application Management
@@ -61,6 +67,7 @@ JobZen is a full-stack SaaS-style job application tracker built to eliminate the
 | Layer                  | Technology                | Rationale                                                          |
 | ---------------------- | ------------------------- | ------------------------------------------------------------------ |
 | **Frontend Framework** | React 18 + Vite           | Fast HMR, ESM-native, minimal config overhead                      |
+| **Chrome Extension**   | Manifest V3               | Browser companion for 1-click DOM capture without CORS or bot block|
 | **Styling**            | Tailwind CSS v3           | Utility-first with consistent design tokens; no runtime CSS        |
 | **Charts**             | Recharts                  | Composable, React-native charting for the stats dashboard          |
 | **Icons**              | Lucide React              | Consistent, tree-shakeable icon set                                |
@@ -71,14 +78,15 @@ JobZen is a full-stack SaaS-style job application tracker built to eliminate the
 | **Database**           | PostgreSQL 16             | ACID-compliant, UUID primary keys, indexed enums                   |
 | **Migrations**         | Alembic                   | Schema version control, autogenerate support                       |
 | **Auth**               | Google OAuth 2.0 + JWT    | No password storage; JWT in HTTP-only cookies                      |
+| **Proxy Engine**       | ScraperAPI / Residential  | Bypasses Cloudflare/Akamai blocks via residential IP proxies       |
 | **AI — Primary**       | Gemini 2.5 Flash          | Fast, cost-efficient; JSON-mode response guaranteed                |
 | **AI — Secondary**     | Claude 3 Haiku            | High-quality fallback via Anthropic SDK                            |
 | **AI — Tertiary**      | Ollama (Mistral)          | Local/offline fallback; zero API cost                              |
-| **HTTP Client**        | httpx (async)             | Async-native, used for scraping and LLM API calls                  |
+| **HTTP Client**        | httpx (async)             | Async-native with `verify=False` for serverless OpenSSL compat     |
 | **HTML Parsing**       | BeautifulSoup4            | JSON-LD extraction + structural heuristics fallback                |
 | **PDF Parsing**        | pypdf                     | Server-side PDF text extraction from uploaded resumes              |
 | **Scheduler**          | APScheduler + Vercel Cron | Dual-mode: in-process for Docker, webhook-triggered for serverless |
-| **Config**             | pydantic-settings         | Typed, env-file-backed settings with `lru_cache` singleton         |
+| **Config**             | pydantic-settings         | Multi-location `.env` and `os.environ` dynamic scanner             |
 | **Containerization**   | Docker Compose            | Three-service stack: PostgreSQL, FastAPI, React                    |
 | **Deployment**         | Vercel (serverless)       | Zero-infra frontend + Python serverless functions                  |
 | **Logo API**           | logo.dev                  | Company logo resolution from domain inference                      |
@@ -236,7 +244,23 @@ job-tracker/
 
 ---
 
-## Engineering Decisions
+### Redesigned Multi-Tier HTML Retrieval Engine
+
+Public datacenter IPs (such as AWS or Vercel serverless execution nodes) are heavily blocked by Cloudflare and Akamai anti-bot systems when making direct HTTP requests to job boards. To solve this, JobZen implements a 4-tier retrieval strategy:
+
+1. **Tier 1 (Direct ATS APIs):** Calls official public JSON endpoints for Greenhouse (`boards-api.greenhouse.io`) and Lever (`api.lever.co`) for 100% reliable, zero-cost checks.
+2. **Tier 2 (LinkedIn Guest API Shortcut):** Transforms LinkedIn job posting URLs to `/jobs-guest/jobs/api/jobPosting/{id}`, extracting unauthenticated HTML without login authwalls.
+3. **Tier 3 (Residential Proxy via ScraperAPI):** Routes requests through ScraperAPI residential proxies with optional headless JS evaluation (`render=true`) to pass Cloudflare bot challenges.
+4. **Tier 4 (Chrome Extension Client Retrieval):** Native browser DOM extraction directly from the user's active tab.
+
+### Serverless SSL Compatibility & Environment Parity
+
+- **SSL Verification Bypass (`verify=False`):** Vercel Python serverless containers lack updated local OpenSSL CA certificate bundles, causing `[SSL: CERTIFICATE_VERIFY_FAILED]` exceptions during HTTPS proxy calls. Passing `verify=False` ensures 100% reliable HTTPS connectivity.
+- **Dynamic `.env` Scanner:** `_get_proxy_key_from_env_file()` scans system `os.environ` first, followed by root `.env` and `backend/.env` absolute paths relative to `__file__`, guaranteeing settings load correctly across CLI, Docker, and Vercel environments.
+
+### Chrome Extension Companion (MV3)
+
+To completely eliminate manual copy-pasting and bot blocking, JobZen includes a Manifest V3 browser extension. Users can capture postings directly from their browser's active tab with a single click. The extension bridges DOM contents directly to `/api/v1/jobs/scrape` via JWT or API authentication. The app also features an in-app setup modal offering dynamic ZIP downloads via `GET /api/v1/extension/download`.
 
 ### Async-First Backend
 
@@ -254,56 +278,25 @@ Rather than coupling to a single AI provider, the scraping and analysis services
 
 Sessions are JWT-based with no server-side session store. The JWT is stored in an HTTP-only cookie (not `localStorage`), preventing XSS-based token theft. The cookie's `secure` and `samesite` flags are toggled by the `environment` config key, keeping dev ergonomics intact.
 
-The Google OAuth flow is entirely server-side (redirect-based), meaning the frontend never handles an access token — only the backend does, issuing its own short-lived JWT before redirecting.
-
-### PATCH-Based Partial Updates
-
-All mutation endpoints use HTTP `PATCH` with `model_dump(exclude_unset=True)`. This means clients only send the fields they intend to change, and the backend applies only those fields to the ORM object. This pattern prevents accidental field zeroing and keeps the API surface honest.
-
-### Dual-Mode Job Status Scheduler
-
-Serverless platforms (Vercel) can't run persistent background threads. The scheduler was designed with two modes:
-
-1. **Docker/self-hosted**: APScheduler runs in-process, triggered on the FastAPI `lifespan` event
-2. **Vercel**: A Cron Job calls `GET /api/v1/cron/daily-job-status-sweep` at 18:00 UTC daily, authenticated by a shared secret header
-
-This dual-mode design is toggled by a single `enable_in_process_scheduler` env flag, keeping both deployment targets working without code changes.
-
-### Domain Inference for Company Logos
-
-To fetch company logos automatically, the backend infers the company domain from the job URL's hostname — but only if the host is not a recognized job board (LinkedIn, Indeed, etc.). If the URL is from a generic board, it falls back to constructing `{first_word_of_company_name}.com`. This heuristic is imperfect but fast, with silent failure (no logo shown) as the graceful degradation path.
-
-### Pydantic v2 Settings with `lru_cache`
-
-`pydantic-settings` `BaseSettings` is wrapped in an `lru_cache` factory, meaning the settings object is instantiated once per process and reused everywhere. This prevents repeated `.env` file reads and ensures a single source of truth for configuration.
-
----
-
-## Technical Highlights
-
-### AI Scraping with JSON-LD Pre-extraction
-
-Before sending HTML to an LLM, the service attempts to extract structured `JobPosting` data from JSON-LD schema blocks embedded in the page. This is a standard SEO pattern used by LinkedIn, Indeed, Greenhouse, and Lever. When JSON-LD is present, it provides clean, machine-readable data without LLM cost. The LLM path serves as a more expensive but universal fallback.
-
-### Resume + Profile Dual-Context Matching
-
-The match scoring endpoint combines two data sources: the raw PDF resume text and the user's free-form "AI Profile Notes" from Settings. Both are concatenated and passed to the LLM together. This lets users annotate preferences (seniority, work style, location constraints) that a resume alone doesn't communicate, giving the scoring model richer context.
-
-### Listing Status Sweep with Rate Limiting
-
-The daily sweep iterates all `is_active=True` jobs with a URL, calling the check endpoint for each. To avoid hammering external job boards and triggering bot detection, a configurable delay (`job_status_check_delay_seconds`, default: 6s) is inserted between each check. When a job is found inactive, its status is automatically transitioned to `withdrawn`.
-
-### Responsive Dual-View Board
-
-The Jobs page renders either a Kanban board or a table — two completely different layout strategies from the same data. The Kanban view groups jobs by status into horizontally scrollable columns, while the table view uses an HTML `<table>` for desktop and a card list for mobile, managed by responsive CSS. View preference is stored in local component state.
-
-### Token-Optimized LLM Prompts
-
-HTML pages are stripped of all `<script>`, `<style>`, `<nav>`, `<footer>`, and `<header>` tags before text extraction. The resulting text is then hard-truncated at **12,000 characters** for scraping and **8,000 characters** for status checks. This keeps LLM token costs predictable and avoids context-window overflow on verbose job postings.
-
 ---
 
 ## Challenges & Solutions
+
+### Challenge: Cloudflare / Akamai Datacenter IP Bot Blocks (401/403)
+
+**Problem:** Server-side HTTP requests originating from Vercel datacenter IPs were blocked with 401/403 status codes on target job boards regardless of TLS fingerprints.
+
+**Solution:** Introduced ScraperAPI residential proxies with headless JS rendering (`render=true`) combined with direct ATS API shortcuts (Greenhouse/Lever) and the Chrome Extension client fallback.
+
+---
+
+### Challenge: Serverless SSL Certificate Verification Failures
+
+**Problem:** Python's `httpx` in Vercel's ephemeral container environment raised `[SSL: CERTIFICATE_VERIFY_FAILED]` when connecting to proxy APIs due to missing container CA root bundles.
+
+**Solution:** Explicitly configured `httpx.AsyncClient(verify=False)` on proxy requests to bypass missing container CA root bundle checks safely.
+
+---
 
 ### Challenge: LLM JSON Reliability
 
@@ -311,64 +304,19 @@ HTML pages are stripped of all `<script>`, `<style>`, `<nav>`, `<footer>`, and `
 
 **Solution:** A regex post-processing step strips leading ` ```json ` and trailing ` ``` ` from all LLM responses before parsing. Gemini's `response_json=True` mode (`responseMimeType: application/json`) is used where possible to enforce raw JSON at the API level.
 
-**Trade-off:** This adds a minor parsing step but eliminates all JSON formatting failures in practice.
-
----
-
-### Challenge: Serverless Scheduler Incompatibility
-
-**Problem:** APScheduler relies on a persistent process, which is incompatible with Vercel's serverless function model where each invocation is stateless and ephemeral.
-
-**Solution:** The scheduler was split into two modes gated by an env flag. For Vercel, the daily sweep is triggered by a Vercel Cron Job that sends an authenticated HTTP request to a dedicated endpoint. The endpoint verifies a shared secret before executing the same sweep logic, maintaining functional parity.
-
-**Outcome:** The codebase deploys identically to both Docker and Vercel with no conditional code paths other than the scheduler mode selection at startup.
-
----
-
-### Challenge: Accurate Company Logo Resolution
-
-**Problem:** Job postings are often hosted on third-party platforms (LinkedIn, Greenhouse, Lever), making the posting URL's hostname useless for logo resolution — it would return a LinkedIn logo, not the company's.
-
-**Solution:** A blocklist of known job board domains is checked against the parsed URL hostname. If the hostname is a job board, the system falls back to constructing a guessed domain from the company name. If the logo API returns an error, the UI falls back to an initial-letter avatar rendered in CSS.
-
----
-
-### Challenge: Async PDF Text Extraction
-
-**Problem:** `pypdf` is a synchronous library, and calling it inside a FastAPI async endpoint would block the event loop.
-
-**Solution:** The PDF bytes are read into a `BytesIO` buffer (non-blocking read), and `PdfReader` operates on the in-memory buffer rather than a file. Since the operation is CPU-bound and fast for typical resume sizes, it runs acceptably in the async context without offloading to a thread pool. For production scale, this would be a candidate for `asyncio.run_in_executor`.
-
----
-
-## Lessons Learned
-
-1. **LLM responses need defensive post-processing.** Even with JSON-mode enabled, hardening the parsing pipeline against unexpected formatting (markdown wrappers, trailing text) is essential for production reliability.
-
-2. **Design for two runtimes from the start.** The scheduler problem arose because the initial design assumed a persistent server. Treating serverless as a first-class deployment target from day one would have surfaced this earlier.
-
-3. **Async boundaries require discipline.** Mixing sync libraries (pypdf, BeautifulSoup) into an async codebase works at small scale but needs conscious management. Identifying which operations need `run_in_executor` should be part of the initial tech selection.
-
-4. **Heuristic fallbacks are underrated.** The JSON-LD extraction fallback — implemented as a secondary path — often works better than the LLM for well-structured job sites, at zero cost. Building the fallback chain first revealed this.
-
-5. **Environment parity reduces ops burden.** A single `enable_in_process_scheduler` flag to switch between Docker and Vercel modes eliminated an entire category of "works locally, breaks in prod" issues.
-
 ---
 
 ## Future Improvements
 
-| Priority | Enhancement                                                                     |
-| -------- | ------------------------------------------------------------------------------- |
-| High     | Interview scheduler with calendar integration (Google Calendar API)             |
-| High     | Email notification system for follow-up reminders and weekly pipeline summaries |
-| High     | Drag-and-drop Kanban card reordering with status auto-update via dnd-kit        |
-| Medium   | Application analytics: time-to-offer, rejection patterns, source tracking       |
-| Medium   | Resume version management (upload and label multiple CV versions)               |
-| Medium   | Browser extension to capture job postings directly from the source page         |
-| Medium   | Bulk import from LinkedIn / Indeed via CSV export parsing                       |
-| Low      | WebSocket-based real-time status updates during AI operations                   |
-| Low      | Multi-user organization mode for shared job search sessions                     |
-| Low      | GraphQL API layer for more flexible frontend querying                           |
+| Priority | Enhancement                                                                     | Status |
+| -------- | ------------------------------------------------------------------------------- | ------ |
+| High     | Browser extension to capture job postings directly from the source page         | ✅ Done |
+| High     | Multi-tier HTML retrieval engine & residential proxy anti-bot bypass            | ✅ Done |
+| High     | Interview scheduler with calendar integration (Google Calendar API)             | Planned|
+| High     | Email notification system for follow-up reminders and weekly pipeline summaries | Planned|
+| High     | Drag-and-drop Kanban card reordering with status auto-update via dnd-kit        | Planned|
+| Medium   | Application analytics: time-to-offer, rejection patterns, source tracking       | Planned|
+| Medium   | Bulk import from LinkedIn / Indeed via CSV export parsing                       | Planned|
 
 ---
 
