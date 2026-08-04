@@ -367,27 +367,37 @@ def _normalize_scraped_job_data(data: dict, raw_text: str) -> dict:
         work_type = "onsite"
 
     # 3. Precise Currency & Pay Rate Extraction
-    pay_matches = re.findall(r"(PHP|\$|USD|EUR|GBP|₱)\s*(\d+(?:\,\d+)?(?:\.\d+)?)\s*(?:-|to|\s+)\s*(?:PHP|\$|USD|EUR|GBP|₱)?\s*(\d+(?:\,\d+)?(?:\.\d+)?)", raw_text, re.IGNORECASE)
+    pay_matches = re.findall(r"(PHP|\$|USD|EUR|€|GBP|£|JPY|¥|CAD|C\$|AUD|A\$|₱)\s*(\d+(?:\,\d+)?(?:\.\d+)?)\s*(?:-|to|\s+)\s*(?:PHP|\$|USD|EUR|€|GBP|£|JPY|¥|CAD|C\$|AUD|A\$|₱)?\s*(\d+(?:\,\d+)?(?:\.\d+)?)", raw_text, re.IGNORECASE)
     
+    # Detect part-time schedule (80 hrs/month) vs full-time (160 hrs/month)
+    is_part_time = bool(re.search(r"\bpart[- ]time\b", raw_text, re.IGNORECASE))
+    hourly_multiplier = 80 if is_part_time else 160
+
     if pay_matches:
         cur_sym, val1, val2 = pay_matches[0]
         cur_sym_upper = cur_sym.upper()
-        if "PHP" in cur_sym_upper or "₱" in cur_sym_upper:
-            currency = "PHP"
-        elif "$" in cur_sym or "USD" in cur_sym_upper:
-            currency = "USD"
-        elif "EUR" in cur_sym_upper or "€" in cur_sym:
+        if "EUR" in cur_sym_upper or "€" in cur_sym:
             currency = "EUR"
         elif "GBP" in cur_sym_upper or "£" in cur_sym:
             currency = "GBP"
+        elif "JPY" in cur_sym_upper or "¥" in cur_sym:
+            currency = "JPY"
+        elif "CAD" in cur_sym_upper or "C$" in cur_sym_upper:
+            currency = "CAD"
+        elif "AUD" in cur_sym_upper or "A$" in cur_sym_upper:
+            currency = "AUD"
+        elif "PHP" in cur_sym_upper or "₱" in cur_sym_upper:
+            currency = "PHP"
+        elif "$" in cur_sym or "USD" in cur_sym_upper:
+            currency = "USD"
 
         try:
             p_min = float(val1.replace(",", ""))
             p_max = float(val2.replace(",", ""))
             # Convert to MONTHLY salary:
             if "hour" in raw_text.lower() or "hr" in raw_text.lower() or p_min < 500:
-                salary_min = int(p_min * 160)
-                salary_max = int(p_max * 160)
+                salary_min = int(p_min * hourly_multiplier)
+                salary_max = int(p_max * hourly_multiplier)
             elif p_min >= 20000:
                 salary_min = int(p_min / 12)
                 salary_max = int(p_max / 12)
@@ -397,8 +407,16 @@ def _normalize_scraped_job_data(data: dict, raw_text: str) -> dict:
         except Exception:
             pass
 
-    # Override: If USD or $ is explicitly stated in the job text (e.g. "$50 to $100 USD per hour"), prioritize USD over localized UI text
-    if re.search(r"\$\s*\d+|\bUSD\b", raw_text, re.IGNORECASE):
+    # High-precision currency priority waterfall
+    if re.search(r"€|\bEUR\b", raw_text, re.IGNORECASE):
+        currency = "EUR"
+    elif re.search(r"£|\bGBP\b", raw_text, re.IGNORECASE):
+        currency = "GBP"
+    elif re.search(r"¥|\bJPY\b", raw_text, re.IGNORECASE):
+        currency = "JPY"
+    elif re.search(r"C\$|\bCAD\b", raw_text, re.IGNORECASE):
+        currency = "CAD"
+    elif re.search(r"\$\s*\d+|\bUSD\b", raw_text, re.IGNORECASE) and not re.search(r"₱|\bPHP\b", raw_text, re.IGNORECASE):
         currency = "USD"
 
     # Normalize integer values for salary & ensure MONTHLY standard (convert any residual annual numbers >= 20,000)

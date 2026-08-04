@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Plus, LayoutGrid, List } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { Plus, LayoutGrid, List, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import { jobsApi } from '../api/client'
 import StatusBadge, { STATUS_CONFIG } from '../components/StatusBadge'
 import ExpiredBadge from '../components/ExpiredBadge'
@@ -14,6 +14,8 @@ export default function Jobs() {
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState('list')
   const [showAddModal, setShowAddModal] = useState(false)
+  const [sortField, setSortField] = useState('created_at')
+  const [sortOrder, setSortOrder] = useState('desc')
 
   const fetchJobs = () => {
     setLoading(true)
@@ -26,6 +28,35 @@ export default function Jobs() {
     setJobs([job, ...jobs])
   }
 
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortOrder('asc')
+    }
+  }
+
+  const sortedJobs = useMemo(() => {
+    return [...jobs].sort((a, b) => {
+      let valA = a[sortField] || ''
+      let valB = b[sortField] || ''
+      if (sortField === 'created_at' || sortField === 'date_applied') {
+        valA = new Date(valA).getTime() || 0
+        valB = new Date(valB).getTime() || 0
+      } else if (sortField === 'salary') {
+        valA = a.salary_min || 0
+        valB = b.salary_min || 0
+      } else {
+        valA = String(valA).toLowerCase()
+        valB = String(valB).toLowerCase()
+      }
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [jobs, sortField, sortOrder])
+
   if (loading) return (
     <div className="flex items-center justify-center h-64">
       <div className="w-5 h-5 border-2 border-zinc-900 dark:border-zinc-50 border-t-transparent rounded-full animate-spin" />
@@ -33,9 +64,14 @@ export default function Jobs() {
   )
 
   const jobsByStatus = STATUSES.reduce((acc, status) => {
-    acc[status] = jobs.filter(j => j.status === status)
+    acc[status] = sortedJobs.filter(j => j.status === status)
     return acc
   }, {})
+
+  const renderSortIcon = (field) => {
+    if (sortField !== field) return <ArrowUpDown size={12} className="ml-1 opacity-40 inline" />
+    return sortOrder === 'asc' ? <ArrowUp size={12} className="ml-1 inline text-brand-500" /> : <ArrowDown size={12} className="ml-1 inline text-brand-500" />
+  }
 
   return (
     <div className="flex h-full flex-col space-y-4">
@@ -104,7 +140,7 @@ export default function Jobs() {
                       )}
                       <div className="mt-3 flex items-center justify-between border-t border-zinc-100 pt-3 text-xs text-zinc-400 dark:border-zinc-800 dark:text-zinc-500">
                         <span>{job.location || 'Remote'}</span>
-                        {job.salary_min && <span>${job.salary_min/1000}k+</span>}
+                        {job.salary_min && <span>${(job.salary_min).toLocaleString()}/mo</span>}
                       </div>
                     </Link>
                   ))}
@@ -120,7 +156,7 @@ export default function Jobs() {
         ) : (
           <div className="space-y-3">
             <div className="mobile-card-list">
-              {jobs.map(job => (
+              {sortedJobs.map(job => (
                 <Link key={job.id} to={`/jobs/${job.id}`} className="card block p-4">
                   <div className="flex items-start gap-3">
                     {job.company_logo_url ? (
@@ -140,13 +176,14 @@ export default function Jobs() {
                         <StatusBadge status={job.status} />
                         <span className="rounded-full bg-zinc-100 px-2 py-1 text-[11px] text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">{job.location || 'No location'}</span>
                         <span className="rounded-full bg-zinc-100 px-2 py-1 text-[11px] capitalize text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">{job.work_type || 'Unknown type'}</span>
+                        {job.salary_min && <span className="rounded-full bg-zinc-100 px-2 py-1 text-[11px] font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">${job.salary_min.toLocaleString()}/mo</span>}
                         {job.is_active === false && <ExpiredBadge />}
                       </div>
                     </div>
                   </div>
                 </Link>
               ))}
-              {jobs.length === 0 && (
+              {sortedJobs.length === 0 && (
                 <div className="card p-6 text-center text-sm text-zinc-400">
                   No applications yet. Tap “Add Application” to get started.
                 </div>
@@ -159,16 +196,28 @@ export default function Jobs() {
                   <table className="min-w-[780px] w-full text-left">
                     <thead>
                       <tr>
-                        <th className="th">Company</th>
-                        <th className="th">Role</th>
-                        <th className="th">Status</th>
-                        <th className="th">Location</th>
-                        <th className="th">Type</th>
-                        <th className="th text-right">Applied</th>
+                        <th className="th cursor-pointer select-none" onClick={() => handleSort('company_name')}>
+                          Company {renderSortIcon('company_name')}
+                        </th>
+                        <th className="th cursor-pointer select-none" onClick={() => handleSort('job_title')}>
+                          Role {renderSortIcon('job_title')}
+                        </th>
+                        <th className="th cursor-pointer select-none" onClick={() => handleSort('status')}>
+                          Status {renderSortIcon('status')}
+                        </th>
+                        <th className="th cursor-pointer select-none" onClick={() => handleSort('location')}>
+                          Location {renderSortIcon('location')}
+                        </th>
+                        <th className="th cursor-pointer select-none" onClick={() => handleSort('salary')}>
+                          Salary {renderSortIcon('salary')}
+                        </th>
+                        <th className="th cursor-pointer select-none text-right" onClick={() => handleSort('created_at')}>
+                          Applied {renderSortIcon('created_at')}
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {jobs.map(job => (
+                      {sortedJobs.map(job => (
                         <tr key={job.id} className="table-row">
                           <td className="td !py-2.5">
                             <Link to={`/jobs/${job.id}`} className="flex items-center gap-2 text-zinc-900 transition-colors hover:text-brand-500 dark:text-zinc-100">
@@ -190,11 +239,11 @@ export default function Jobs() {
                             </div>
                           </td>
                           <td className="td !py-2.5">{job.location || '—'}</td>
-                          <td className="td !py-2.5 capitalize">{job.work_type || '—'}</td>
+                          <td className="td !py-2.5">{job.salary_min ? `$${job.salary_min.toLocaleString()}/mo` : '—'}</td>
                           <td className="td !py-2.5 text-right">{new Date(job.created_at).toLocaleDateString()}</td>
                         </tr>
                       ))}
-                      {jobs.length === 0 && (
+                      {sortedJobs.length === 0 && (
                         <tr>
                           <td colSpan={6} className="td py-8 text-center text-zinc-400">
                             No applications yet. Click "Add Application" to get started.
