@@ -384,17 +384,24 @@ def _normalize_scraped_job_data(data: dict, raw_text: str) -> dict:
         try:
             p_min = float(val1.replace(",", ""))
             p_max = float(val2.replace(",", ""))
-            # If hourly pay rate (e.g. 50 to 100 per hour), convert to annual equivalent (2000 hours)
+            # Convert to MONTHLY salary:
             if "hour" in raw_text.lower() or "hr" in raw_text.lower() or p_min < 500:
-                salary_min = int(p_min * 2000)
-                salary_max = int(p_max * 2000)
+                salary_min = int(p_min * 160)
+                salary_max = int(p_max * 160)
+            elif p_min >= 20000:
+                salary_min = int(p_min / 12)
+                salary_max = int(p_max / 12)
             else:
                 salary_min = int(p_min)
                 salary_max = int(p_max)
         except Exception:
             pass
 
-    # Normalize integer values for salary
+    # Override: If USD or $ is explicitly stated in the job text (e.g. "$50 to $100 USD per hour"), prioritize USD over localized UI text
+    if re.search(r"\$\s*\d+|\bUSD\b", raw_text, re.IGNORECASE):
+        currency = "USD"
+
+    # Normalize integer values for salary & ensure MONTHLY standard (convert any residual annual numbers >= 20,000)
     if isinstance(salary_min, (float, str)):
         try:
             salary_min = int(float(str(salary_min).replace(",", "")))
@@ -406,6 +413,11 @@ def _normalize_scraped_job_data(data: dict, raw_text: str) -> dict:
             salary_max = int(float(str(salary_max).replace(",", "")))
         except Exception:
             salary_max = None
+
+    if salary_min and salary_min >= 20000:
+        salary_min = int(salary_min / 12)
+    if salary_max and salary_max >= 20000:
+        salary_max = int(salary_max / 12)
 
     if salary_min and salary_min <= 0:
         salary_min = None
@@ -486,8 +498,8 @@ Respond with a JSON object containing EXACTLY these fields:
 - company_name (string): Name of hiring organization (e.g. "DataAnnotation").
 - job_title (string): Specific position title (e.g. "Full Stack Developer - AI Trainer").
 - location (string): Location or Region (e.g. "National Capital Region, Philippines" or "Remote, Philippines"). NEVER output garbage like "P00, PH" or salary numbers in location.
-- salary_min (integer or null): Annual base minimum. If hourly (e.g. $50/hr or PHP 50/hr), convert to annual by multiplying hourly rate by 2000 (e.g. 50 * 2000 = 100000).
-- salary_max (integer or null): Annual base maximum. If hourly (e.g. $100/hr or PHP 100/hr), convert to annual (100 * 2000 = 200000).
+- salary_min (integer or null): Monthly base salary minimum. If hourly (e.g. $50/hr), convert to monthly by multiplying hourly rate by 160 (e.g. 50 * 160 = 8000). If annual (e.g. $120,000/yr), convert to monthly by dividing by 12 (120000 / 12 = 10000).
+- salary_max (integer or null): Monthly base salary maximum. If hourly (e.g. $100/hr), convert to monthly (100 * 160 = 16000). If annual, divide by 12.
 - currency (string): 3-letter currency code (e.g. "USD", "PHP", "EUR", "GBP"). Detect accurately from symbols ($ -> USD, PHP / ₱ -> PHP).
 - work_type (string): MUST be one of "remote", "hybrid", "onsite", "unknown". If "Remote" or "Fully remote" is mentioned, output "remote".
 - job_description (string): Clean Markdown text of the job description, qualifications, and responsibilities. Exclude website headers, ratings like "4.1 out of 5 stars", and navigation noise.
