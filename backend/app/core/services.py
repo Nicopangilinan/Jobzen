@@ -795,12 +795,16 @@ async def check_job_active(url: str, html: str | None = None) -> dict:
             html_text, status_code, fetch_engine = await fetch_html_with_stealth(url)
             if status_code == 404:
                 return {"is_active": False, "reason": "Page not found (404)", "engine": fetch_engine}
-            if status_code in (401, 403):
-                return {"is_active": False, "reason": f"Access restricted ({status_code})", "engine": fetch_engine}
+            if status_code in (401, 403, 500, 502, 503):
+                # Access or server error — DO NOT mark as inactive! Defer until next clean check
+                return {"is_active": True, "reason": f"Verification deferred: Access/Server restriction ({status_code})", "engine": fetch_engine}
+            if not html_text or len(html_text.strip()) < 100:
+                # Empty or blocked page content — DO NOT mark as inactive!
+                return {"is_active": True, "reason": "Verification deferred: Page content empty or blocked", "engine": fetch_engine}
             html = html_text
         except Exception as e:
             logger.error(f"Failed to fetch job URL for active check {url}: {e}")
-            return {"is_active": False, "reason": f"Job posting page unreachable ({str(e) or type(e).__name__})", "engine": "error_fallback"}
+            return {"is_active": True, "reason": f"Verification deferred: Network error ({type(e).__name__})", "engine": "error_fallback"}
 
     soup = BeautifulSoup(html, "html.parser")
     for script_or_style in soup(["script", "style", "nav", "footer", "header", "noscript"]):

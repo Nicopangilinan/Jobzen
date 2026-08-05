@@ -19,11 +19,17 @@ async def refresh_job_listing_status(db: AsyncSession, job: Job, html: str | Non
         raise ValueError("Cannot verify status because this job has no posting URL.")
 
     status_data = await check_job_active(job.job_url, html=html)
-    job.is_active = status_data.get("is_active", True)
+    new_is_active = status_data.get("is_active", True)
+    job.is_active = new_is_active
     job.last_checked_at = datetime.now(timezone.utc)
 
-    if not job.is_active:
-        job.status = JobStatus.withdrawn
+    if not new_is_active:
+        if job.status in (JobStatus.applied, JobStatus.interviewing):
+            job.status = JobStatus.withdrawn
+    else:
+        # If job is confirmed active again, restore status if it was marked withdrawn by a past false positive
+        if job.status == JobStatus.withdrawn:
+            job.status = JobStatus.applied
 
     await db.commit()
     await db.refresh(job)
